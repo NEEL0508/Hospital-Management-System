@@ -1,8 +1,42 @@
-import React from 'react';
+import React, { useState, useContext } from 'react';
 import { User, Mail, Phone, Calendar, Droplet, MapPin, Lock, UserPlus } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
+import { toast } from 'react-toastify';
 
 const Register = () => {
+  const navigate = useNavigate();
+  const { register } = useContext(AuthContext);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: ''
+  });
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Passwords do not match!');
+      return;
+    }
+    
+    const response = await register(formData.name, formData.email, formData.password, 'Patient');
+    
+    if (response.success) {
+      toast.success('Registration successful! Please sign in.');
+      navigate('/login');
+    } else {
+      toast.error(response.message);
+    }
+  };
+
   return (
     <div className="register-page">
       <div className="container">
@@ -15,20 +49,20 @@ const Register = () => {
             <p className="register-subtitle">Create your account to book appointments</p>
           </div>
           
-          <form className="register-form">
+          <form className="register-form" onSubmit={handleRegister}>
             <div className="form-row">
               <div className="form-group">
                 <label>Full Name *</label>
                 <div className="input-with-icon">
                   <User size={18} className="input-icon" />
-                  <input type="text" placeholder="John Doe" />
+                  <input type="text" name="name" required placeholder="John Doe" value={formData.name} onChange={handleChange} />
                 </div>
               </div>
               <div className="form-group">
                 <label>Email Address *</label>
                 <div className="input-with-icon">
                   <Mail size={18} className="input-icon" />
-                  <input type="email" placeholder="john@example.com" />
+                  <input type="email" name="email" required placeholder="john@example.com" value={formData.email} onChange={handleChange} />
                 </div>
               </div>
             </div>
@@ -38,7 +72,7 @@ const Register = () => {
                 <label>Phone Number *</label>
                 <div className="input-with-icon">
                   <Phone size={18} className="input-icon" />
-                  <input type="tel" placeholder="+1 (555) 123-4567" />
+                  <input type="tel" name="phone" required placeholder="+1 (555) 123-4567" value={formData.phone} onChange={handleChange} />
                 </div>
               </div>
               <div className="form-group">
@@ -95,14 +129,14 @@ const Register = () => {
                 <label>Password *</label>
                 <div className="input-with-icon">
                   <Lock size={18} className="input-icon" />
-                  <input type="password" placeholder="••••••••" />
+                  <input type="password" name="password" required minLength="6" placeholder="••••••••" value={formData.password} onChange={handleChange} />
                 </div>
               </div>
               <div className="form-group">
                 <label>Confirm Password *</label>
                 <div className="input-with-icon">
                   <Lock size={18} className="input-icon" />
-                  <input type="password" placeholder="••••••••" />
+                  <input type="password" name="confirmPassword" required minLength="6" placeholder="••••••••" value={formData.confirmPassword} onChange={handleChange} />
                 </div>
               </div>
             </div>
@@ -117,7 +151,7 @@ const Register = () => {
             <button type="submit" className="btn btn-primary form-submit-btn">Register</button>
             
             <p className="form-footer-text">
-              Already have an account? <Link to="#" className="signin-link">Sign In</Link>
+              Already have an account? <Link to="/login" className="signin-link">Sign In</Link>
             </p>
           </form>
         </div>
