@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, Building, CalendarPlus, Clock, User } from 'lucide-react';
+import { LayoutDashboard, Users, Building, CalendarPlus, User, Receipt } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const AdminSidebar = ({ activeId }) => {
@@ -9,7 +9,7 @@ const AdminSidebar = ({ activeId }) => {
     { id: 'departments', icon: <Building size={20} />, label: "Departments", link: "/admin/departments" },
     { id: 'patients', icon: <User size={20} />, label: "Patients", link: "/admin/patients" },
     { id: 'appointments', icon: <CalendarPlus size={20} />, label: "Appointments", link: "/admin/appointments" },
-    { id: 'doctor-schedule', icon: <Clock size={20} />, label: "Doctor Schedule", link: "/admin/doctor-schedule" },
+    { id: 'billing', icon: <Receipt size={20} />, label: "Billing", link: "/admin/billing" },
     { id: 'profile', icon: <User size={20} />, label: "Profile", link: "/admin/profile" }
   ];
 

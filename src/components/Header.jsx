@@ -1,12 +1,32 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { SquarePlus, Home, LogOut, UserCircle } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
+import NotificationBell from './NotificationBell';
 
 const Header = () => {
-  const location = useLocation();
-  const isDashboard = location.pathname.includes('/dashboard') || location.pathname.includes('/find-doctors') || location.pathname.includes('/book-appointment') || location.pathname.includes('/my-appointments') || location.pathname.includes('/medical-records');
-  const isDoctorPanel = location.pathname.includes('/doctor');
-  const isAdminPanel = location.pathname.includes('/admin');
+  const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const getDashboardLink = () => {
+    if (!user) return '/dashboard';
+    if (user.role === 'Admin') return '/admin/dashboard';
+    if (user.role === 'Doctor') return '/doctor/dashboard';
+    return '/dashboard';
+  };
+
+  const getRoleBadge = () => {
+    if (user?.role === 'Admin') return { label: 'ADMIN', bg: '#e0f2fe', color: '#3b82f6' };
+    if (user?.role === 'Doctor') return { label: 'DOCTOR', bg: '#dcfce7', color: '#16a34a' };
+    return { label: 'PATIENT', bg: '#f3e8ff', color: '#9333ea' };
+  };
+
+  const badge = getRoleBadge();
 
   return (
     <header className="header">
@@ -17,47 +37,33 @@ const Header = () => {
           </div>
           <span className="logo-text">Hospital Management</span>
         </Link>
-        
+
         <nav className="nav-links">
-          {isAdminPanel ? (
+          <Link to="/">Home</Link>
+          <Link to="/about">About</Link>
+          <Link to="/contact">Contact</Link>
+
+          {user ? (
             <>
-              <Link to="/">Home</Link>
-              <Link to="/about">About</Link>
-              <Link to="/contact">Contact</Link>
-              <Link to="/admin/dashboard" className="nav-link-icon text-primary"><Home size={16} className="mr-1"/> Dashboard</Link>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
+              <Link to={getDashboardLink()} className="nav-link-icon text-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <Home size={16} /> Dashboard
+              </Link>
+              <NotificationBell />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.5rem' }}>
                 <UserCircle size={20} color="#64748b" />
-                <span style={{ fontWeight: 500, color: '#1e293b' }}>Admin User</span>
-                <span style={{ backgroundColor: '#e0f2fe', color: '#3b82f6', fontSize: '0.7rem', fontWeight: 'bold', padding: '0.1rem 0.4rem', borderRadius: '9999px', marginRight: '0.5rem' }}>ADMIN</span>
-                <Link to="/login" className="nav-link-icon text-danger" style={{ display: 'flex', alignItems: 'center', color: '#ef4444' }}><LogOut size={16} className="mr-1"/> Logout</Link>
+                <span style={{ fontWeight: 500, color: '#1e293b' }}>{user.name}</span>
+                <span style={{ backgroundColor: badge.bg, color: badge.color, fontSize: '0.7rem', fontWeight: 'bold', padding: '0.1rem 0.4rem', borderRadius: '9999px' }}>
+                  {badge.label}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'none', border: 'none', color: '#ef4444', fontWeight: 500, cursor: 'pointer', fontSize: '0.95rem' }}>
+                  <LogOut size={16} /> Logout
+                </button>
               </div>
-            </>
-          ) : isDoctorPanel ? (
-            <>
-              <Link to="/">Home</Link>
-              <Link to="/about">About</Link>
-              <Link to="/contact">Contact</Link>
-              <Link to="/doctor/dashboard" className="nav-link-icon text-primary"><Home size={16} className="mr-1"/> Dashboard</Link>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
-                <UserCircle size={20} color="#64748b" />
-                <span style={{ fontWeight: 500, color: '#1e293b' }}>Dr. Sarah Johnson</span>
-                <span style={{ backgroundColor: '#e0f2fe', color: '#3b82f6', fontSize: '0.7rem', fontWeight: 'bold', padding: '0.1rem 0.4rem', borderRadius: '9999px', marginRight: '0.5rem' }}>DOCTOR</span>
-                <Link to="/login" className="nav-link-icon text-danger" style={{ display: 'flex', alignItems: 'center', color: '#ef4444' }}><LogOut size={16} className="mr-1"/> Logout</Link>
-              </div>
-            </>
-          ) : isDashboard ? (
-            <>
-              <Link to="/">Home</Link>
-              <Link to="/about">About</Link>
-              <Link to="/contact">Contact</Link>
-              <Link to="/dashboard" className="nav-link-icon text-primary"><Home size={16} className="mr-1"/> Dashboard</Link>
-              <Link to="/login" className="nav-link-icon text-danger"><LogOut size={16} className="mr-1"/> Logout</Link>
             </>
           ) : (
             <>
-              <Link to="/">Home</Link>
-              <Link to="/about">About</Link>
-              <Link to="/contact">Contact</Link>
               <Link to="/login">Login</Link>
               <Link to="/register" className="btn btn-primary">Register</Link>
             </>
