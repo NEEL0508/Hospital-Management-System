@@ -1,35 +1,47 @@
-import React from 'react';
-import { FileText, Download, Activity, Pill } from 'lucide-react';
+import React, { useState, useEffect, useContext } from 'react';
+import { FileText, Activity, Pill, Calendar } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
-
-const records = [
-  {
-    type: "Lab Report",
-    title: "Complete Blood Count (CBC)",
-    date: "2026-03-10",
-    doctor: "Dr. Sarah Johnson",
-    icon: <Activity size={24} className="text-blue-600" />,
-    iconBg: "bg-blue-100"
-  },
-  {
-    type: "Prescription",
-    title: "Amoxicillin 500mg",
-    date: "2026-02-15",
-    doctor: "Dr. Michael Chen",
-    icon: <Pill size={24} className="text-purple-600" />,
-    iconBg: "bg-purple-100"
-  },
-  {
-    type: "Scan Report",
-    title: "Chest X-Ray",
-    date: "2026-01-20",
-    doctor: "Dr. Emily Davis",
-    icon: <FileText size={24} className="text-emerald-600" />,
-    iconBg: "bg-emerald-100"
-  }
-];
+import api from '../api';
+import { AuthContext } from '../context/AuthContext';
+import { toast } from 'react-toastify';
 
 const MedicalRecords = () => {
+  const { user } = useContext(AuthContext);
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRecords = async () => {
+      try {
+        const config = { headers: { Authorization: `Bearer ${user.token}` } };
+        const { data } = await api.get('/records/my-records', config);
+        setRecords(data);
+      } catch (error) {
+        toast.error('Failed to load medical records');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchRecords();
+    }
+  }, [user]);
+
+  const getRecordIcon = (type) => {
+    switch (type) {
+      case 'Lab Report':
+        return { icon: <Activity size={24} className="text-blue-600" />, bg: "bg-blue-100" };
+      case 'Prescription':
+        return { icon: <Pill size={24} className="text-purple-600" />, bg: "bg-purple-100" };
+      case 'Consultation':
+        return { icon: <Calendar size={24} className="text-orange-600" />, bg: "bg-orange-100" };
+      case 'Scan Report':
+      default:
+        return { icon: <FileText size={24} className="text-emerald-600" />, bg: "bg-emerald-100" };
+    }
+  };
+
   return (
     <div className="dashboard-layout">
       <Sidebar activeId="records" />
@@ -40,28 +52,39 @@ const MedicalRecords = () => {
           <p className="welcome-subtitle">View your prescriptions and medical history</p>
         </header>
 
-        {records.length > 0 ? (
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Loading records...</div>
+        ) : records.length > 0 ? (
           <div className="records-list">
-            {records.map((record, idx) => (
-              <div key={idx} className="record-card">
-                <div className={`record-icon-wrapper ${record.iconBg}`}>
-                  {record.icon}
-                </div>
-                <div className="record-details">
-                  <h3 className="record-title">{record.title}</h3>
-                  <div className="record-meta">
-                    <span className="record-type">{record.type}</span>
-                    <span className="record-dot">•</span>
-                    <span>{record.date}</span>
-                    <span className="record-dot">•</span>
-                    <span>{record.doctor}</span>
+            {records.map((record) => {
+              const style = getRecordIcon(record.type);
+              return (
+                <div key={record._id} className="record-card">
+                  <div className={`record-icon-wrapper ${style.bg}`}>
+                    {style.icon}
+                  </div>
+                  <div className="record-main-content">
+                    <div className="record-details">
+                      <h3 className="record-title">{record.title}</h3>
+                      <div className="record-meta">
+                        <span className="record-type">{record.type}</span>
+                        <span className="record-dot">•</span>
+                        <span>{new Date(record.date).toISOString().split('T')[0]}</span>
+                        <span className="record-dot">•</span>
+                        <span>Dr. {record.doctor?.user?.name || 'Unknown'}</span>
+                      </div>
+                    </div>
+                    
+                    {record.prescription && (
+                      <div className="prescription-box">
+                        <span className="prescription-label">Prescription Details:</span>
+                        <p className="prescription-text">{record.prescription}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <button className="btn btn-outline-dark btn-download">
-                  <Download size={18} className="mr-1" /> Download
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="empty-state-card">

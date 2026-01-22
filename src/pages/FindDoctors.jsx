@@ -1,48 +1,57 @@
-import React from 'react';
-import { Search, Mail, Phone } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Mail, Phone, User as UserIcon, Stethoscope, AlertCircle } from 'lucide-react';
+import api from '../api';
 import Sidebar from '../components/Sidebar';
 
-const doctors = [
-  {
-    name: "Dr. Sarah Johnson",
-    title: "MD, PhD - Senior Cardiologist",
-    email: "s.johnson@hplus.com",
-    phone: "+1 (555) 012-3456",
-    badge: "Cardiology",
-    image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=2070&auto=format&fit=crop",
-    tags: [
-      { text: "12+ years exp", type: "gray" },
-      { text: "Top Rated", type: "green" }
-    ],
-    days: ["Mon", "Wed", "Fri"]
-  },
-  {
-    name: "Dr. Michael Chen",
-    title: "MD - Lead Neurologist",
-    email: "m.chen@hplus.com",
-    phone: "+1 (555) 012-7890",
-    badge: "Neurology",
-    image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=2070&auto=format&fit=crop",
-    tags: [
-      { text: "8+ years exp", type: "gray" }
-    ],
-    days: ["Tue", "Thu", "Sat"]
-  },
-  {
-    name: "Dr. Emily Davis",
-    title: "MD - Pediatric Specialist",
-    email: "e.davis@hplus.com",
-    phone: "+1 (555) 012-9999",
-    badge: "Pediatrics",
-    image: "https://images.unsplash.com/photo-1594824436998-efa4c61989c9?q=80&w=1974&auto=format&fit=crop",
-    tags: [
-      { text: "10+ years exp", type: "gray" }
-    ],
-    days: ["Mon", "Tue", "Wed", "Thu"]
-  }
-];
-
 const FindDoctors = () => {
+  const [doctors, setDoctors] = useState([]);
+  const [filteredDoctors, setFilteredDoctors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDept, setSelectedDept] = useState('All Departments');
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        setLoading(true);
+        const { data } = await api.get('/doctors');
+        setDoctors(data);
+        setFilteredDoctors(data);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching doctors:", err);
+        setError("Failed to load doctor database. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDoctors();
+  }, []);
+
+  useEffect(() => {
+    // Dynamic Filtering
+    let results = doctors;
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      results = results.filter(doc => 
+        doc.user?.name?.toLowerCase().includes(term) || 
+        doc.specialization?.toLowerCase().includes(term)
+      );
+    }
+
+    if (selectedDept !== 'All Departments') {
+      results = results.filter(doc => doc.specialization === selectedDept);
+    }
+
+    setFilteredDoctors(results);
+  }, [searchTerm, selectedDept, doctors]);
+
+  // Extract unique departments for dropdown
+  const departments = ['All Departments', ...new Set(doctors.map(doc => doc.specialization))];
+
   return (
     <div className="dashboard-layout">
       <Sidebar activeId="find-doctors" />
@@ -53,61 +62,84 @@ const FindDoctors = () => {
           <p className="welcome-subtitle">Search for medical specialists by name or department</p>
         </header>
 
+        {error && (
+          <div className="error-alert">
+            <AlertCircle size={20} />
+            <span>{error}</span>
+          </div>
+        )}
+
         <div className="doctor-filters">
           <div className="search-input-wrapper">
             <Search size={18} className="search-icon" />
-            <input type="text" placeholder="Search by doctor name or specialty..." />
+            <input 
+              type="text" 
+              placeholder="Search by doctor name or specialty..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <select className="filter-select">
-            <option>All Departments</option>
-            <option>Cardiology</option>
-            <option>Neurology</option>
-            <option>Pediatrics</option>
+          <select 
+            className="filter-select"
+            value={selectedDept}
+            onChange={(e) => setSelectedDept(e.target.value)}
+          >
+            {departments.map((dept, i) => (
+              <option key={i} value={dept}>{dept}</option>
+            ))}
           </select>
           <button className="btn btn-search">Search</button>
         </div>
 
-        <div className="doctors-grid">
-          {doctors.map((doc, idx) => (
-            <div key={idx} className="doctor-card">
-              <div className="doctor-image-wrapper">
-                <img src={doc.image} alt={doc.name} />
-                <span className="doctor-badge">{doc.badge}</span>
-              </div>
-              <div className="doctor-info">
-                <h3 className="doctor-name">{doc.name}</h3>
-                <p className="doctor-title">{doc.title}</p>
-                
-                <div className="doctor-contact">
-                  <div className="doctor-contact-item">
-                    <Mail size={16} /> {doc.email}
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin h-10 w-10 border-b-2 border-primary mx-auto mb-4 rounded-full"></div>
+            <p>Scanning for registered doctors...</p>
+          </div>
+        ) : filteredDoctors.length > 0 ? (
+          <div className="doctors-grid">
+            {filteredDoctors.map((doc) => (
+              <div key={doc._id} className="doctor-card card-no-image">
+                <div className="doctor-info">
+                  <div className="doctor-header-row">
+                    <div className="doctor-avatar-placeholder">
+                      <Stethoscope size={24} className="text-primary" />
+                    </div>
+                    <div className="doctor-title-block">
+                      <h3 className="doctor-name">Dr. {doc.user?.name || 'Doctor'}</h3>
+                      <span className="doctor-badge-tag">{doc.specialization}</span>
+                    </div>
                   </div>
-                  <div className="doctor-contact-item">
-                    <Phone size={16} /> {doc.phone}
+                  
+                  <p className="doctor-title-text mt-2">
+                    {doc.experience}+ years of professional experience
+                  </p>
+                  
+                  <div className="doctor-contact mt-4">
+                    <div className="doctor-contact-item">
+                      <Mail size={14} /> {doc.user?.email || 'N/A'}
+                    </div>
+                    <div className="doctor-contact-item">
+                      <Phone size={14} /> {doc.user?.phone || 'N/A'}
+                    </div>
                   </div>
-                </div>
 
-                <div className="doctor-tags">
-                  {doc.tags.map((tag, i) => (
-                    <span key={i} className={`tag tag-${tag.type}`}>{tag.text}</span>
-                  ))}
-                </div>
 
-                <div className="available-days">
-                  <p className="available-days-title">Available Days</p>
-                  <div className="days-list">
-                    {doc.days.map((day, i) => (
-                      <span key={i} className="day-badge">{day}</span>
-                    ))}
-                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state-card mt-8">
+            <Search size={48} className="text-gray-300 mb-4" />
+            <h3>No Doctors Found</h3>
+            <p>We couldn't find any registered specialists matching your criteria.</p>
+          </div>
+        )}
       </main>
     </div>
   );
 };
 
 export default FindDoctors;
+
