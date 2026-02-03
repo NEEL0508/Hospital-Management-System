@@ -1,8 +1,67 @@
-import React from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { User, Mail, Phone, Briefcase, Lock, Save, Key } from 'lucide-react';
 import DoctorSidebar from '../../components/DoctorSidebar';
+import { AuthContext } from '../../context/AuthContext';
+import api from '../../api';
+import { toast } from 'react-toastify';
 
 const DoctorProfile = () => {
+  const { user, updateUser } = useContext(AuthContext);
+
+  const [profileData, setProfileData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    specialization: ''
+  });
+
+  const [passwords, setPasswords] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        specialization: user.specialization || ''
+      });
+    }
+  }, [user]);
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    try {
+      const config = { headers: { Authorization: `Bearer ${user.token}` } };
+      const { data } = await api.put('/auth/profile', profileData, config);
+      updateUser(data);
+      toast.success('Profile updated successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update profile');
+    }
+  };
+
+  const handlePasswordUpdate = async (e) => {
+    e.preventDefault();
+    if (passwords.newPassword !== passwords.confirmPassword) {
+       return toast.error('New passwords do not match!');
+    }
+    try {
+      const config = { headers: { Authorization: `Bearer ${user.token}` } };
+      const { data } = await api.put('/auth/profile', { 
+         currentPassword: passwords.currentPassword,
+         password: passwords.newPassword 
+      }, config);
+      updateUser(data);
+      setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      toast.success('Password changed successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to change password');
+    }
+  };
   return (
     <div className="dashboard-layout">
       <DoctorSidebar activeId="profile" />
@@ -19,14 +78,15 @@ const DoctorProfile = () => {
           {/* Profile Information Card */}
           <div style={{ backgroundColor: 'white', borderRadius: '0.75rem', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '1.5rem' }}>Profile Information</h2>
-            <form style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <form style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }} onSubmit={handleProfileUpdate}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#475569', marginBottom: '0.5rem' }}>Full Name</label>
                 <div style={{ position: 'relative' }}>
                   <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <input 
                     type="text" 
-                    defaultValue="Dr. Sarah Johnson"
+                    value={profileData.name}
+                    onChange={(e) => setProfileData({...profileData, name: e.target.value})}
                     style={{ width: '100%', padding: '0.625rem 1rem 0.625rem 2.5rem', borderRadius: '0.375rem', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none' }}
                   />
                 </div>
@@ -38,7 +98,8 @@ const DoctorProfile = () => {
                   <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <input 
                     type="email" 
-                    defaultValue="doctor@hospital.com"
+                    value={profileData.email}
+                    onChange={(e) => setProfileData({...profileData, email: e.target.value})}
                     style={{ width: '100%', padding: '0.625rem 1rem 0.625rem 2.5rem', borderRadius: '0.375rem', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none' }}
                   />
                 </div>
@@ -50,7 +111,8 @@ const DoctorProfile = () => {
                   <Phone size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <input 
                     type="tel" 
-                    defaultValue="+1-555-0002"
+                    value={profileData.phone}
+                    onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
                     style={{ width: '100%', padding: '0.625rem 1rem 0.625rem 2.5rem', borderRadius: '0.375rem', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none' }}
                   />
                 </div>
@@ -62,13 +124,14 @@ const DoctorProfile = () => {
                   <Briefcase size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <input 
                     type="text" 
-                    defaultValue="Cardiology"
+                    value={profileData.specialization}
+                    onChange={(e) => setProfileData({...profileData, specialization: e.target.value})}
                     style={{ width: '100%', padding: '0.625rem 1rem 0.625rem 2.5rem', borderRadius: '0.375rem', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none' }}
                   />
                 </div>
               </div>
 
-              <button type="button" style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%', backgroundColor: '#10b981', color: 'white', padding: '0.75rem', borderRadius: '0.375rem', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
+              <button type="submit" style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%', backgroundColor: '#10b981', color: 'white', padding: '0.75rem', borderRadius: '0.375rem', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
                 <Save size={18} /> Update Profile
               </button>
             </form>
@@ -77,14 +140,17 @@ const DoctorProfile = () => {
           {/* Change Password Card */}
           <div style={{ backgroundColor: 'white', borderRadius: '0.75rem', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '1.5rem' }}>Change Password</h2>
-            <form style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <form style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }} onSubmit={handlePasswordUpdate}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#475569', marginBottom: '0.5rem' }}>Current Password</label>
                 <div style={{ position: 'relative' }}>
                   <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <input 
                     type="password" 
-                    defaultValue="••••••••"
+                    placeholder="Enter current password"
+                    value={passwords.currentPassword}
+                    onChange={(e) => setPasswords({...passwords, currentPassword: e.target.value})}
+                    required
                     style={{ width: '100%', padding: '0.625rem 1rem 0.625rem 2.5rem', borderRadius: '0.375rem', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none' }}
                   />
                 </div>
@@ -96,7 +162,11 @@ const DoctorProfile = () => {
                   <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <input 
                     type="password" 
-                    defaultValue="••••••••"
+                    placeholder="Enter new password"
+                    value={passwords.newPassword}
+                    onChange={(e) => setPasswords({...passwords, newPassword: e.target.value})}
+                    required
+                    minLength={6}
                     style={{ width: '100%', padding: '0.625rem 1rem 0.625rem 2.5rem', borderRadius: '0.375rem', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none' }}
                   />
                 </div>
@@ -108,13 +178,17 @@ const DoctorProfile = () => {
                   <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <input 
                     type="password" 
-                    defaultValue="••••••••"
+                    placeholder="Confirm new password"
+                    value={passwords.confirmPassword}
+                    onChange={(e) => setPasswords({...passwords, confirmPassword: e.target.value})}
+                    required
+                    minLength={6}
                     style={{ width: '100%', padding: '0.625rem 1rem 0.625rem 2.5rem', borderRadius: '0.375rem', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none' }}
                   />
                 </div>
               </div>
 
-              <button type="button" style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%', backgroundColor: '#10b981', color: 'white', padding: '0.75rem', borderRadius: '0.375rem', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
+              <button type="submit" style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%', backgroundColor: '#10b981', color: 'white', padding: '0.75rem', borderRadius: '0.375rem', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
                 <Key size={18} /> Change Password
               </button>
             </form>
