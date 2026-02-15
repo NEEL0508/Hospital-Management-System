@@ -1,27 +1,42 @@
-import React from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Search, ChevronDown, CheckCircle, XCircle } from 'lucide-react';
 import AdminSidebar from '../../components/AdminSidebar';
-
-const appointmentsData = [
-  {
-    patientName: "John Smith",
-    reason: "Regular checkup",
-    doctorName: "Dr. Sarah Johnson",
-    department: "Cardiology",
-    dateTime: "2024-02-05 10:00",
-    status: "approved"
-  },
-  {
-    patientName: "Emma Wilson",
-    reason: "Child vaccination",
-    doctorName: "Dr. Emily Davis",
-    department: "Pediatrics",
-    dateTime: "2024-02-06 14:00",
-    status: "pending"
-  }
-];
+import api from '../../api';
+import { AuthContext } from '../../context/AuthContext';
+import { toast } from 'react-toastify';
 
 const ManageAppointments = () => {
+  const { user } = useContext(AuthContext);
+  const [appointmentsData, setAppointmentsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAppointments = async () => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${user.token}` } };
+      const { data } = await api.get('/appointments', config);
+      setAppointmentsData(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+      setLoading(false);
+    } catch (error) {
+      toast.error('Failed to load appointments');
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) fetchAppointments();
+  }, [user]);
+
+  const handleStatusUpdate = async (id, status) => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${user.token}` } };
+      await api.put(`/appointments/${id}/status`, { status }, config);
+      toast.success(`Appointment ${status.toLowerCase()} successfully`);
+      fetchAppointments();
+    } catch (error) {
+      toast.error('Failed to update status');
+    }
+  };
+
   return (
     <div className="dashboard-layout">
       <AdminSidebar activeId="appointments" />
@@ -74,14 +89,18 @@ const ManageAppointments = () => {
                 </tr>
               </thead>
               <tbody>
-                {appointmentsData.map((apt, i) => (
-                  <tr key={i} style={{ borderBottom: i === appointmentsData.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
+                {loading ? (
+                  <tr><td colSpan="6" style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>Loading appointments...</td></tr>
+                ) : appointmentsData.length === 0 ? (
+                  <tr><td colSpan="6" style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>No appointments found.</td></tr>
+                ) : appointmentsData.map((apt, i) => (
+                  <tr key={apt._id} style={{ borderBottom: i === appointmentsData.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
                     <td style={{ padding: '1.5rem 1.25rem' }}>
-                      <div style={{ fontWeight: 600, color: '#1e293b', marginBottom: '0.125rem' }}>{apt.patientName}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{apt.reason}</div>
+                      <div style={{ fontWeight: 600, color: '#1e293b', marginBottom: '0.125rem' }}>{apt.patient?.name || 'Unknown'}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{apt.reasonForVisit}</div>
                     </td>
                     <td style={{ padding: '1.5rem 1.25rem', color: '#475569', fontSize: '0.875rem' }}>
-                      {apt.doctorName}
+                      Dr. {apt.doctor?.user?.name || 'Unknown'}
                     </td>
                     <td style={{ padding: '1.5rem 1.25rem' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.25rem 0.75rem', borderRadius: '9999px', backgroundColor: '#eff6ff', color: '#3b82f6', display: 'inline-block' }}>
@@ -90,8 +109,8 @@ const ManageAppointments = () => {
                     </td>
                     <td style={{ padding: '1.5rem 1.25rem' }}>
                       <div style={{ color: '#475569', fontSize: '0.875rem' }}>
-                        {apt.dateTime.split(' ')[0]}<br/>
-                        {apt.dateTime.split(' ')[1]}
+                        {new Date(apt.appointmentDate).toLocaleDateString()}<br/>
+                        {apt.appointmentTime}
                       </div>
                     </td>
                     <td style={{ padding: '1.5rem 1.25rem' }}>
@@ -100,8 +119,8 @@ const ManageAppointments = () => {
                         fontWeight: 600, 
                         padding: '0.25rem 0.75rem', 
                         borderRadius: '9999px', 
-                        backgroundColor: apt.status === 'approved' ? '#dcfce7' : '#fef9c3', 
-                        color: apt.status === 'approved' ? '#16a34a' : '#ca8a04', 
+                        backgroundColor: apt.status === 'Approved' ? '#dcfce7' : apt.status === 'Cancelled' ? '#fee2e2' : '#fef9c3', 
+                        color: apt.status === 'Approved' ? '#16a34a' : apt.status === 'Cancelled' ? '#991b1b' : '#ca8a04', 
                         display: 'inline-block',
                         textTransform: 'capitalize'
                       }}>
@@ -109,12 +128,12 @@ const ManageAppointments = () => {
                       </span>
                     </td>
                     <td style={{ padding: '1.5rem 1.25rem' }}>
-                      {apt.status === 'pending' && (
+                      {apt.status === 'Pending' && (
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                          <button style={{ background: 'none', border: '1px solid #bbf7d0', borderRadius: '50%', padding: '0.25rem', color: '#22c55e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <button onClick={() => handleStatusUpdate(apt._id, 'Approved')} style={{ background: 'none', border: '1px solid #bbf7d0', borderRadius: '50%', padding: '0.25rem', color: '#22c55e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <CheckCircle size={16} />
                           </button>
-                          <button style={{ background: 'none', border: '1px solid #fecaca', borderRadius: '50%', padding: '0.25rem', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <button onClick={() => handleStatusUpdate(apt._id, 'Cancelled')} style={{ background: 'none', border: '1px solid #fecaca', borderRadius: '50%', padding: '0.25rem', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <XCircle size={16} />
                           </button>
                         </div>

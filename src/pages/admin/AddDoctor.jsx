@@ -1,17 +1,50 @@
-import React from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../../api';
+import { AuthContext } from '../../context/AuthContext';
+import { toast } from 'react-toastify';
 
 const AddDoctor = () => {
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+
+  const [formData, setFormData] = useState({
+    name: '', email: '', phone: '', password: '', 
+    specialization: '', experience: '', feesPerConsultation: ''
+  });
+
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleCancel = () => {
     navigate('/admin/manage-doctors');
   };
 
-  const handleAddDoctor = (e) => {
+  const handleAddDoctor = async (e) => {
     e.preventDefault();
-    // Simulate adding doctor
-    navigate('/admin/manage-doctors');
+    try {
+      // Step 1: Register User with Role Doctor
+      const userRes = await api.post('/auth/register', {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        phone: formData.phone,
+        role: 'Doctor'
+      });
+
+      // Step 2: Create Doctor Profile linked to the User
+      const config = { headers: { Authorization: `Bearer ${user.token}` } };
+      await api.post('/doctors', {
+        userId: userRes.data._id,
+        specialization: formData.specialization,
+        experience: Number(formData.experience),
+        feesPerConsultation: Number(formData.feesPerConsultation)
+      }, config);
+
+      toast.success('Doctor successfully added!');
+      navigate('/admin/manage-doctors');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Error adding doctor');
+    }
   };
 
   return (
@@ -21,77 +54,47 @@ const AddDoctor = () => {
         
         <form onSubmit={handleAddDoctor}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
-            
             {/* Name */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', color: '#475569', marginBottom: '0.5rem' }}>Name *</label>
-              <input 
-                type="text" 
-                required
-                style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }}
-              />
+              <input type="text" name="name" required value={formData.name} onChange={handleChange} style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }} />
             </div>
 
             {/* Email */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', color: '#475569', marginBottom: '0.5rem' }}>Email *</label>
-              <input 
-                type="email" 
-                required
-                style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }}
-              />
+              <input type="email" name="email" required value={formData.email} onChange={handleChange} style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }} />
+            </div>
+
+            {/* Password */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', color: '#475569', marginBottom: '0.5rem' }}>Initial Password *</label>
+              <input type="password" name="password" required minLength="6" value={formData.password} onChange={handleChange} style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }} />
             </div>
 
             {/* Phone */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', color: '#475569', marginBottom: '0.5rem' }}>Phone *</label>
-              <input 
-                type="tel" 
-                required
-                style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }}
-              />
+              <input type="tel" name="phone" required value={formData.phone} onChange={handleChange} style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }} />
             </div>
 
             {/* Specialization */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', color: '#475569', marginBottom: '0.5rem' }}>Specialization *</label>
-              <input 
-                type="text" 
-                required
-                style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }}
-              />
-            </div>
-
-            {/* Department */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', color: '#475569', marginBottom: '0.5rem' }}>Department *</label>
-              <input 
-                type="text" 
-                required
-                style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }}
-              />
+              <input type="text" name="specialization" required value={formData.specialization} onChange={handleChange} style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }} />
             </div>
 
             {/* Experience */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', color: '#475569', marginBottom: '0.5rem' }}>Experience (years) *</label>
-              <input 
-                type="number" 
-                required
-                style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }}
-              />
+              <input type="number" name="experience" required value={formData.experience} onChange={handleChange} style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }} />
             </div>
 
-            {/* Qualification - Full width */}
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ display: 'block', fontSize: '0.875rem', color: '#475569', marginBottom: '0.5rem' }}>Qualification *</label>
-              <input 
-                type="text" 
-                required
-                style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }}
-              />
+            {/* Fees */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', color: '#475569', marginBottom: '0.5rem' }}>Fees Per Consultation ($) *</label>
+              <input type="number" name="feesPerConsultation" required value={formData.feesPerConsultation} onChange={handleChange} style={{ width: '100%', padding: '0.625rem 1rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b' }} />
             </div>
-            
           </div>
 
           {/* Action Buttons */}
