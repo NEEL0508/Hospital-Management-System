@@ -1,0 +1,65 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const dotenv = require('dotenv');
+
+// Load environment variables
+dotenv.config();
+
+const app = express();
+
+// Start reminder job
+const startReminderJob = require('./utils/reminderJob');
+startReminderJob();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Database Connection
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGO_URI);
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error(`Error connecting to MongoDB: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+connectDB();
+
+// Routes
+const authRoutes = require('./routes/authRoutes');
+const doctorRoutes = require('./routes/doctorRoutes');
+const appointmentRoutes = require('./routes/appointmentRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const recordRoutes = require('./routes/recordRoutes');
+const billRoutes = require('./routes/billRoutes');
+const reportRoutes = require('./routes/reportRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const leaveRoutes = require('./routes/leaveRoutes');
+const feedbackRoutes = require('./routes/feedbackRoutes');
+
+// Mount Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/doctors', doctorRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/records', recordRoutes);
+app.use('/api/bills', billRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/leaves', leaveRoutes);
+app.use('/api/feedback', feedbackRoutes);
+
+// Basic Route for testing
+app.get('/', (req, res) => {
+  res.send('Hospital Backend API is running!');
+});
+
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+});
