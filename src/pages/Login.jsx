@@ -1,8 +1,15 @@
 import React from 'react';
 import { User, Mail, Lock, EyeOff } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Login = () => {
+  const navigate = useNavigate();
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    navigate('/dashboard');
+  };
+
   return (
     <div className="login-page">
       <div className="container">
@@ -16,7 +23,7 @@ const Login = () => {
               <p className="login-subtitle">Access your health dashboard</p>
             </div>
             
-            <form className="login-form">
+            <form className="login-form" onSubmit={handleLogin}>
               <div className="form-group">
                 <label>Email Address</label>
                 <div className="input-with-icon">
