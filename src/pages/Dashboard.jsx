@@ -1,18 +1,6 @@
 import React from 'react';
-import { 
-  LayoutDashboard, Search, CalendarPlus, Clock, MessageSquare, 
-  FileText, User, Calendar, CheckCircle2,
-} from 'lucide-react';
-
-const sidebarItems = [
-  { icon: <LayoutDashboard size={20} />, label: "Dashboard", active: true },
-  { icon: <Search size={20} />, label: "Find Doctors" },
-  { icon: <CalendarPlus size={20} />, label: "Book Appointment" },
-  { icon: <Clock size={20} />, label: "My Appointments" },
-  { icon: <MessageSquare size={20} />, label: "Feedback" },
-  { icon: <FileText size={20} />, label: "Medical Records" },
-  { icon: <User size={20} />, label: "Profile" }
-];
+import { Search, CalendarPlus, Clock, FileText, Calendar, CheckCircle2 } from 'lucide-react';
+import Sidebar from '../components/Sidebar';
 
 const stats = [
   { label: "TOTAL APPOINTMENTS", value: "1", icon: <Calendar size={20} className="text-purple-600" />, iconBg: "bg-purple-100" },
@@ -24,18 +12,7 @@ const stats = [
 const Dashboard = () => {
   return (
     <div className="dashboard-layout">
-      {/* Sidebar */}
-      <aside className="sidebar">
-        <h2 className="sidebar-title">Patient Portal</h2>
-        <nav className="sidebar-nav">
-          {sidebarItems.map((item, index) => (
-            <a href="#" key={index} className={`sidebar-link ${item.active ? 'active' : ''}`}>
-              {item.icon}
-              <span>{item.label}</span>
-            </a>
-          ))}
-        </nav>
-      </aside>
+      <Sidebar activeId="dashboard" />
 
       {/* Main Content */}
       <main className="dashboard-content">

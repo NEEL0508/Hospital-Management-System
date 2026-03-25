@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 
 const Header = () => {
   const location = useLocation();
-  const isDashboard = location.pathname.includes('/dashboard');
+  const isDashboard = location.pathname.includes('/dashboard') || location.pathname.includes('/find-doctors');
 
   return (
     <header className="header">
