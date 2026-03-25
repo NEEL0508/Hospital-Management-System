@@ -1,8 +1,11 @@
 import React from 'react';
-import { SquarePlus } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { SquarePlus, Home, LogOut } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 
 const Header = () => {
+  const location = useLocation();
+  const isDashboard = location.pathname.includes('/dashboard');
+
   return (
     <header className="header">
       <div className="container header-container">
@@ -14,11 +17,23 @@ const Header = () => {
         </Link>
         
         <nav className="nav-links">
-          <Link to="/">Home</Link>
-          <a href="#">About</a>
-          <a href="#">Contact</a>
-          <Link to="/login">Login</Link>
-          <Link to="/register" className="btn btn-primary">Register</Link>
+          {isDashboard ? (
+            <>
+              <Link to="/">Home</Link>
+              <a href="#">About</a>
+              <a href="#">Contact</a>
+              <Link to="/dashboard" className="nav-link-icon text-primary"><Home size={16} className="mr-1"/> Dashboard</Link>
+              <Link to="/login" className="nav-link-icon text-danger"><LogOut size={16} className="mr-1"/> Logout</Link>
+            </>
+          ) : (
+            <>
+              <Link to="/">Home</Link>
+              <a href="#">About</a>
+              <a href="#">Contact</a>
+              <Link to="/login">Login</Link>
+              <Link to="/register" className="btn btn-primary">Register</Link>
+            </>
+          )}
         </nav>
       </div>
     </header>
