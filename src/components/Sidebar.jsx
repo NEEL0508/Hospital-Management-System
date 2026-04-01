@@ -9,11 +9,11 @@ const Sidebar = ({ activeId }) => {
   const sidebarItems = [
     { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: "Dashboard", link: "/dashboard" },
     { id: 'find-doctors', icon: <Search size={20} />, label: "Find Doctors", link: "/find-doctors" },
-    { id: 'book', icon: <CalendarPlus size={20} />, label: "Book Appointment", link: "#" },
-    { id: 'appointments', icon: <Clock size={20} />, label: "My Appointments", link: "#" },
-    { id: 'feedback', icon: <MessageSquare size={20} />, label: "Feedback", link: "#" },
-    { id: 'records', icon: <FileText size={20} />, label: "Medical Records", link: "#" },
-    { id: 'profile', icon: <User size={20} />, label: "Profile", link: "#" }
+    { id: 'book', icon: <CalendarPlus size={20} />, label: "Book Appointment", link: "/book-appointment" },
+    { id: 'appointments', icon: <Clock size={20} />, label: "My Appointments", link: "/my-appointments" },
+    { id: 'feedback', icon: <MessageSquare size={20} />, label: "Feedback", link: "/feedback" },
+    { id: 'records', icon: <FileText size={20} />, label: "Medical Records", link: "/medical-records" },
+    { id: 'profile', icon: <User size={20} />, label: "Profile", link: "/profile" }
   ];
 
   return (

@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 
 const Header = () => {
   const location = useLocation();
-  const isDashboard = location.pathname.includes('/dashboard') || location.pathname.includes('/find-doctors');
+  const isDashboard = location.pathname.includes('/dashboard') || location.pathname.includes('/find-doctors') || location.pathname.includes('/book-appointment') || location.pathname.includes('/my-appointments') || location.pathname.includes('/medical-records');
 
   return (
     <header className="header">
