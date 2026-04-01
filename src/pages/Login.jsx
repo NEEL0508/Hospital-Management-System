@@ -1,13 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User, Mail, Lock, EyeOff } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 const Login = () => {
   const navigate = useNavigate();
+  const [role, setRole] = useState('Patient');
 
   const handleLogin = (e) => {
     e.preventDefault();
-    navigate('/dashboard');
+    if (role === 'Doctor') {
+      navigate('/doctor/dashboard');
+    } else if (role === 'Admin') {
+      navigate('/admin/dashboard');
+    } else {
+      navigate('/dashboard');
+    }
   };
 
   return (
@@ -19,7 +26,7 @@ const Login = () => {
               <div className="login-icon-wrapper">
                 <User size={32} color="#2563eb" />
               </div>
-              <h1 className="login-title">Patient Login</h1>
+              <h1 className="login-title">{role} Login</h1>
               <p className="login-subtitle">Access your health dashboard</p>
             </div>
             
@@ -46,15 +53,15 @@ const Login = () => {
                   <input type="checkbox" id="remember" />
                   <label htmlFor="remember">Remember me</label>
                 </div>
-                <a href="#" className="forgot-password">Forgot Password?</a>
+                <Link to="/forgot-password" className="forgot-password">Forgot Password?</Link>
               </div>
 
               <button type="submit" className="btn btn-primary form-submit-btn">Sign In</button>
               
               <div className="role-buttons">
-                <button type="button" className="btn-role">Admin</button>
-                <button type="button" className="btn-role">Doctor</button>
-                <button type="button" className="btn-role active">Patient</button>
+                <button type="button" className={`btn-role ${role === 'Admin' ? 'active' : ''}`} onClick={() => setRole('Admin')}>Admin</button>
+                <button type="button" className={`btn-role ${role === 'Doctor' ? 'active' : ''}`} onClick={() => setRole('Doctor')}>Doctor</button>
+                <button type="button" className={`btn-role ${role === 'Patient' ? 'active' : ''}`} onClick={() => setRole('Patient')}>Patient</button>
               </div>
 
               <p className="form-footer-text">
