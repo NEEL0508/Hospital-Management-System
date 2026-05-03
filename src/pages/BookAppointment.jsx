@@ -106,19 +106,23 @@ const BookAppointment = () => {
     ? [...new Set((selectedDoctorData.availability || []).map(s => s.day))]
     : [];
 
-  // Slot color logic
+  // Slot color logic:
+  //  green  = patient's OWN booked slot
+  //  red    = booked by someone else
+  //  green  = currently selected (available)
+  //  white  = available
   const getSlotStyle = (slot) => {
     if (slot.status === 'booked') {
-      // Check if it's the current patient's own booking
-      return {
-        bg: '#fee2e2', border: '#fca5a5', color: '#991b1b',
-        cursor: 'not-allowed', label: 'Booked',
-      };
+      const isMySlot = user && slot.patientId && slot.patientId === user._id;
+      if (isMySlot) {
+        return { bg: '#dcfce7', border: '#4ade80', color: '#166534', cursor: 'not-allowed', isMySlot: true };
+      }
+      return { bg: '#fee2e2', border: '#fca5a5', color: '#991b1b', cursor: 'not-allowed', isMySlot: false };
     }
     if (formData.appointmentTime === slot.time) {
-      return { bg: '#dcfce7', border: '#4ade80', color: '#166534', cursor: 'pointer', label: 'Selected' };
+      return { bg: '#dcfce7', border: '#4ade80', color: '#166534', cursor: 'pointer', isMySlot: false };
     }
-    return { bg: 'white', border: '#e2e8f0', color: '#1e293b', cursor: 'pointer', label: '' };
+    return { bg: 'white', border: '#e2e8f0', color: '#1e293b', cursor: 'pointer', isMySlot: false };
   };
 
   return (
@@ -205,8 +209,8 @@ const BookAppointment = () => {
                 <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.875rem', flexWrap: 'wrap' }}>
                   {[
                     { bg: 'white', border: '#e2e8f0', label: 'Available' },
-                    { bg: '#dcfce7', border: '#4ade80', label: 'Selected' },
-                    { bg: '#fee2e2', border: '#fca5a5', label: 'Booked' },
+                    { bg: '#dcfce7', border: '#4ade80', label: 'Selected / Your Booking' },
+                    { bg: '#fee2e2', border: '#fca5a5', label: 'Booked by Others' },
                   ].map((item, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: '#64748b' }}>
                       <div style={{ width: '14px', height: '14px', borderRadius: '3px', backgroundColor: item.bg, border: `1px solid ${item.border}` }} />
@@ -240,7 +244,7 @@ const BookAppointment = () => {
                       const style = getSlotStyle(slot);
                       return (
                         <button key={i} type="button" onClick={() => handleSlotClick(slot)}
-                          title={slot.status === 'booked' ? 'This slot is already booked' : 'Click to select'}
+                          title={slot.status === 'booked' ? (style.isMySlot ? 'Your booked slot' : 'Booked by another patient') : 'Click to select'}
                           style={{
                             padding: '0.625rem 0.25rem',
                             borderRadius: '0.5rem',
@@ -252,11 +256,13 @@ const BookAppointment = () => {
                             fontWeight: 600,
                             textAlign: 'center',
                             transition: 'all 0.15s',
-                            position: 'relative',
                           }}>
                           <Clock size={12} style={{ display: 'block', margin: '0 auto 2px' }} />
                           {slot.time}
-                          {slot.status === 'booked' && (
+                          {slot.status === 'booked' && style.isMySlot && (
+                            <div style={{ fontSize: '0.6rem', color: '#16a34a', marginTop: '1px' }}>✓ Yours</div>
+                          )}
+                          {slot.status === 'booked' && !style.isMySlot && (
                             <div style={{ fontSize: '0.6rem', color: '#ef4444', marginTop: '1px' }}>Booked</div>
                           )}
                           {formData.appointmentTime === slot.time && slot.status !== 'booked' && (
