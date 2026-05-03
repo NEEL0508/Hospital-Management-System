@@ -121,10 +121,37 @@ const getDoctorPatients = async (req, res) => {
   }
 };
 
+// @desc    Get full details of a specific patient (for doctor view)
+// @route   GET /api/doctors/patient/:id/details
+// @access  Private (Doctor)
+const getDoctorPatientDetails = async (req, res) => {
+  try {
+    const doctor = await Doctor.findOne({ user: req.user._id });
+    if (!doctor) return res.status(404).json({ message: 'Doctor profile not found' });
+
+    const MedicalRecord = require('../models/MedicalRecord');
+    const Bill = require('../models/Bill');
+
+    const [appointments, medicalRecords, bills] = await Promise.all([
+      Appointment.find({ doctor: doctor._id, patient: req.params.id })
+        .sort({ appointmentDate: -1 }),
+      MedicalRecord.find({ patient: req.params.id, doctor: doctor._id })
+        .sort({ createdAt: -1 }),
+      Bill.find({ patient: req.params.id, doctor: doctor._id })
+        .sort({ createdAt: -1 }),
+    ]);
+
+    res.json({ appointments, medicalRecords, bills });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getDoctors,
   addDoctor,
   getDoctorProfile,
   updateDoctorAvailability,
-  getDoctorPatients
+  getDoctorPatients,
+  getDoctorPatientDetails,
 };
