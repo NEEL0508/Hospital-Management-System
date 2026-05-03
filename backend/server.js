@@ -51,6 +51,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const leaveRoutes = require('./routes/leaveRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
+const ratingRoutes = require('./routes/ratingRoutes');
 
 // Mount Routes
 app.use('/api/auth', authRoutes);
@@ -64,6 +65,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/schedules', scheduleRoutes);
+app.use('/api/ratings', ratingRoutes);
 
 // Basic Route for testing
 app.get('/', (req, res) => {
