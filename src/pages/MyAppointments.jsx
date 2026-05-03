@@ -1,9 +1,102 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Search, Calendar, Clock, X } from 'lucide-react';
+import { Search, Calendar, Clock, X, Star } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import api from '../api';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
+
+// ── Star Rating Widget ──────────────────────────────────────────────────────
+const StarRating = ({ value, onChange, size = 24, readonly = false }) => (
+  <div style={{ display: 'flex', gap: '4px' }}>
+    {[1, 2, 3, 4, 5].map(s => (
+      <button key={s} type="button"
+        onClick={() => !readonly && onChange && onChange(s)}
+        style={{ background: 'none', border: 'none', padding: 0, cursor: readonly ? 'default' : 'pointer', color: s <= value ? '#f59e0b' : '#cbd5e1' }}>
+        <Star size={size} fill={s <= value ? 'currentColor' : 'none'} strokeWidth={1.5} />
+      </button>
+    ))}
+  </div>
+);
+
+// ── Rate Doctor Modal ───────────────────────────────────────────────────────
+const RateDoctorModal = ({ appointment, onClose, onRated }) => {
+  const { user } = useContext(AuthContext);
+  const [rating, setRating] = useState(0);
+  const [review, setReview] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (rating === 0) return toast.error('Please select a star rating');
+    setSubmitting(true);
+    try {
+      await api.post('/ratings', {
+        doctorId: appointment.doctor?._id,
+        appointmentId: appointment._id,
+        rating,
+        review,
+      }, { headers: { Authorization: `Bearer ${user.token}` } });
+      toast.success('Thank you for your rating!');
+      onRated();
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to submit rating');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+      <div style={{ backgroundColor: 'white', borderRadius: '0.75rem', padding: '2rem', width: '90%', maxWidth: '440px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <h3 style={{ margin: 0, fontWeight: 'bold', color: '#1e293b', fontSize: '1.1rem' }}>Rate Your Doctor</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={20} /></button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', marginBottom: '1.25rem' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Star size={20} color="#2563eb" />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontWeight: 700, color: '#1e293b', fontSize: '0.9rem' }}>Dr. {appointment.doctor?.user?.name}</p>
+            <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b' }}>{appointment.department}</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '0.5rem' }}>Your Rating *</label>
+            <StarRating value={rating} onChange={setRating} size={32} />
+            {rating > 0 && (
+              <p style={{ margin: '0.4rem 0 0', fontSize: '0.75rem', color: '#f59e0b', fontWeight: 600 }}>
+                {['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][rating]}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Write a Review (optional)</label>
+            <textarea value={review} onChange={e => setReview(e.target.value)} rows={3}
+              placeholder="Share your experience with this doctor..."
+              style={{ width: '100%', padding: '0.625rem', borderRadius: '0.375rem', border: '1px solid #e2e8f0', outline: 'none', resize: 'none', fontSize: '0.875rem', color: '#1e293b', boxSizing: 'border-box' }} />
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+            <button type="button" onClick={onClose}
+              style={{ padding: '0.625rem 1.25rem', borderRadius: '0.375rem', border: '1px solid #e2e8f0', backgroundColor: 'white', color: '#475569', fontWeight: 600, cursor: 'pointer' }}>
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting}
+              style={{ padding: '0.625rem 1.25rem', borderRadius: '0.375rem', border: 'none', backgroundColor: submitting ? '#fde68a' : '#f59e0b', color: 'white', fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer' }}>
+              {submitting ? 'Submitting...' : '⭐ Submit Rating'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 const MyAppointments = () => {
   const { user } = useContext(AuthContext);
@@ -16,12 +109,26 @@ const MyAppointments = () => {
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
   const [rescheduling, setRescheduling] = useState(false);
+  const [rateModal, setRateModal] = useState(null);
+  const [myRatings, setMyRatings] = useState({}); // doctorId -> rating
 
   const fetchAppointments = async () => {
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
       const { data } = await api.get('/appointments', config);
       setAppointments(data);
+      // Fetch existing ratings for completed appointments
+      const completedDoctorIds = [...new Set(
+        data.filter(a => a.status === 'Completed').map(a => a.doctor?._id).filter(Boolean)
+      )];
+      const ratingsMap = {};
+      await Promise.all(completedDoctorIds.map(async (docId) => {
+        try {
+          const { data: r } = await api.get(`/ratings/my/${docId}`, config);
+          if (r) ratingsMap[docId] = r;
+        } catch {}
+      }));
+      setMyRatings(ratingsMap);
     } catch (error) {
       toast.error('Failed to load appointments');
     } finally {
@@ -149,6 +256,27 @@ const MyAppointments = () => {
                   </div>
                 )}
 
+                {/* Rate Doctor button for completed appointments */}
+                {apt.status === 'Completed' && apt.doctor?._id && (
+                  <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.75rem' }}>
+                    {myRatings[apt.doctor._id] ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <StarRating value={myRatings[apt.doctor._id].rating} readonly size={18} />
+                        <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Your rating</span>
+                        <button onClick={() => setRateModal(apt)}
+                          style={{ fontSize: '0.75rem', color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline' }}>
+                          Edit
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setRateModal(apt)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: '#fef9c3', color: '#92400e', border: '1px solid #fde68a', borderRadius: '0.5rem', padding: '0.5rem 1rem', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}>
+                        <Star size={15} fill="#f59e0b" color="#f59e0b" /> Rate Doctor
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {(apt.status === 'Pending' || apt.status === 'Approved') && (
                   <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
                     <button
@@ -169,6 +297,15 @@ const MyAppointments = () => {
           )}
         </div>
       </main>
+
+      {/* Rate Doctor Modal */}
+      {rateModal && (
+        <RateDoctorModal
+          appointment={rateModal}
+          onClose={() => setRateModal(null)}
+          onRated={fetchAppointments}
+        />
+      )}
 
       {/* Reschedule Modal */}
       {rescheduleModal && (
