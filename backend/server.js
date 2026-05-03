@@ -58,6 +58,15 @@ app.get('/', (req, res) => {
   res.send('Hospital Backend API is running!');
 });
 
+// 404 handler for unknown routes
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
+});
+
+// Global error handler
+const { errorHandler } = require('./middleware/errorHandler');
+app.use(errorHandler);
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
