@@ -646,3 +646,285 @@ The system interfaces with the following external software components:
 - In production, CORS should be restricted to the deployed frontend domain.
 
 ---
+
+## 5. Other Nonfunctional Requirements
+
+### 5.1 Performance Requirements
+
+- **NFR-PERF-1:** The backend API SHALL respond to standard GET requests (e.g., appointment list, patient list) within 500 milliseconds under normal load (up to 50 concurrent users) on the recommended server hardware.
+- **NFR-PERF-2:** The slot generation endpoint (GET /api/schedules/slots/:doctorId/:date) SHALL return a complete slot array within 300 milliseconds, as it is called on every date selection during appointment booking.
+- **NFR-PERF-3:** The frontend SPA SHALL achieve an initial page load time of under 3 seconds on a standard broadband connection (10 Mbps+) after the Vite production build is served.
+- **NFR-PERF-4:** The MongoDB database SHALL support at least 10,000 appointment documents, 1,000 patient records, and 500 medical record documents without degradation in query response time beyond 1 second.
+- **NFR-PERF-5:** File uploads for medical reports SHALL be limited to 10 MB per file. The system SHALL reject files exceeding this limit with an appropriate error message.
+- **NFR-PERF-6:** The daily Node-Cron reminder job SHALL complete processing of all eligible appointments within 5 minutes of its 8:00 AM trigger time, regardless of the number of appointments scheduled for that day.
+- **NFR-PERF-7:** The Admin Activity Overview page (GET /api/admin/activity) aggregates data across all doctors and patients. This endpoint SHOULD complete within 2 seconds for a system with up to 50 doctors and 500 patients.
+
+### 5.2 Safety Requirements
+
+- **NFR-SAFE-1:** The system SHALL NOT allow any user to access, modify, or delete data belonging to another user of the same role. Patients SHALL only see their own appointments, bills, and medical records. Doctors SHALL only see appointments and patients assigned to them.
+- **NFR-SAFE-2:** The system SHALL validate all user inputs on the backend before processing, regardless of frontend validation, to prevent injection attacks and data corruption.
+- **NFR-SAFE-3:** Medical report files uploaded by doctors SHALL be stored as base64 strings in the database. Temporary files created during upload processing SHALL be deleted from the server filesystem immediately after processing, whether the operation succeeds or fails.
+- **NFR-SAFE-4:** The system SHALL NOT expose sensitive patient medical information (diagnosis, medicines, prescriptions, medical records) to any user other than the treating doctor, the patient themselves, and the Admin.
+- **NFR-SAFE-5:** Password reset tokens SHALL expire after 30 minutes. Expired tokens SHALL be rejected and the user SHALL be required to initiate a new password reset request.
+- **NFR-SAFE-6:** The system SHALL prevent appointment double-booking by checking for existing Pending or Approved appointments for the same doctor, date, and time slot before confirming a new booking.
+- **NFR-SAFE-7:** The system SHALL prevent patients from booking appointments on dates when the doctor has marked a leave, providing a clear error message indicating the doctor is unavailable.
+
+### 5.3 Security Requirements
+
+- **NFR-SEC-1:** All passwords SHALL be hashed using bcryptjs with a minimum of 10 salt rounds before storage in MongoDB. Plaintext passwords SHALL NEVER be stored, logged, or transmitted.
+- **NFR-SEC-2:** All authenticated API endpoints SHALL require a valid JWT Bearer token in the Authorization header. Requests without a valid token SHALL receive a 401 Unauthorized response.
+- **NFR-SEC-3:** JWT tokens SHALL be signed using a secret key stored in the JWT_SECRET environment variable. The secret SHALL be at least 32 characters long and SHALL NOT be committed to version control.
+- **NFR-SEC-4:** The system SHALL implement role-based access control (RBAC) at the API level. Admin-only endpoints SHALL verify eq.user.role === 'Admin'. Doctor-only endpoints SHALL verify eq.user.role === 'Doctor'. Unauthorized role access SHALL return a 403 Forbidden response.
+- **NFR-SEC-5:** The backend SHALL set the following HTTP security headers on all responses: X-Content-Type-Options: nosniff, X-Frame-Options: DENY, X-XSS-Protection: 1; mode=block.
+- **NFR-SEC-6:** The rate limiter middleware SHALL be enabled in production environments to limit repeated requests to authentication endpoints (login, register, forgot-password) to a maximum of 5 requests per 15-minute window per IP address, preventing brute-force attacks.
+- **NFR-SEC-7:** All sensitive configuration values (database URI, JWT secret, email credentials, UPI ID) SHALL be stored in a .env file that is listed in .gitignore and SHALL NOT be committed to the version control repository.
+- **NFR-SEC-8:** The system SHALL validate and sanitize all user-supplied inputs on the backend using the validation middleware before processing. Invalid inputs SHALL return a 400 Bad Request response with a descriptive error message.
+- **NFR-SEC-9:** The frontend SHALL implement a ProtectedRoute component that checks the user's authentication status and role from the AuthContext before rendering any protected page. Unauthenticated users SHALL be redirected to /login. Users with an incorrect role SHALL be redirected to their own dashboard.
+- **NFR-SEC-10:** The request body size SHALL be limited to 10 MB on the Express.js server to prevent denial-of-service attacks via large payload submissions.
+
+### 5.4 Software Quality Attributes
+
+- **Usability:** The system SHALL provide clear, role-specific navigation sidebars so that users can reach any feature within 2 clicks from their dashboard. All form submissions SHALL provide immediate feedback via React Toastify toast notifications (success or error). Error messages SHALL be human-readable and actionable.
+- **Reliability:** The system SHALL handle email delivery failures gracefully. If the Gmail SMTP service is unavailable or credentials are not configured, the system SHALL log a warning and continue processing the API request without returning an error to the client. Core functionality SHALL NOT depend on email delivery.
+- **Maintainability:** The codebase SHALL follow a modular architecture with clear separation of concerns: routes, controllers, models, middleware, and utilities in the backend; pages, components, context, and hooks in the frontend. Each backend route file SHALL correspond to a single resource domain.
+- **Portability:** The system SHALL run on any operating system that supports Node.js v18+ and MongoDB 7.x (Windows, macOS, Linux). The frontend build output SHALL be deployable to any static file hosting service.
+- **Scalability:** The MongoDB data models SHALL use indexed fields (email on User, compound index on DoctorRating for doctor+patient) to support efficient queries as data volume grows. The stateless JWT authentication model allows horizontal scaling of the backend without shared session state.
+- **Testability:** All functional requirements (REQ-*) SHALL be independently testable. The backend API endpoints SHALL be testable via HTTP client tools (e.g., Postman, curl) without requiring the frontend. Input validation middleware SHALL be unit-testable in isolation.
+- **Availability:** The system SHALL be available 24/7 when deployed on a server with a stable internet connection. The Node-Cron reminder job SHALL not block the main event loop and SHALL not affect API availability.
+- **Correctness:** All monetary calculations (bill totals, payment amounts, due amounts) SHALL use integer arithmetic or precise decimal handling to avoid floating-point rounding errors. All amounts SHALL be stored as numbers in MongoDB and displayed with Indian locale formatting.
+
+---
+
+## 6. Other Requirements
+
+### 6.1 Database Requirements
+
+- The system SHALL use MongoDB 7.x as the primary database. The connection URI SHALL be configurable via the MONGO_URI environment variable.
+- The following MongoDB collections SHALL be created and maintained by Mongoose models: users, doctors, ppointments, ills, medicalrecords, doctorschedules, doctorleaves, doctorratings, eedbacks, 
+otifications.
+- The users collection SHALL have a unique index on the email field to enforce email uniqueness across all user roles.
+- The doctorratings collection SHALL have a compound unique index on {doctor: 1, patient: 1} to enforce one rating per patient per doctor.
+- The doctorschedules collection SHALL have a compound unique index on {doctor: 1, date: 1} to enforce one schedule per doctor per date.
+- MongoDB timestamps (createdAt, updatedAt) SHALL be enabled on all models to support audit trails and sorting.
+
+### 6.2 Internationalization Requirements
+
+- The system is designed for use in India. All monetary values SHALL be displayed in Indian Rupees (₹) using the en-IN locale for number formatting (e.g., ₹1,00,000).
+- All dates SHALL be displayed using the Indian date format (dd/mm/yyyy) via 	oLocaleDateString('en-IN').
+- The system is currently English-only. Multi-language support is not required in v1.0.
+
+### 6.3 Legal and Compliance Requirements
+
+- This system is developed for educational purposes at RKU and is not intended for production use in a regulated healthcare environment.
+- In a production deployment, the system would need to comply with applicable data protection regulations (e.g., India's Digital Personal Data Protection Act, 2023) regarding the storage and processing of patient health information.
+- Medical records and patient data stored in the system are confidential. Access controls (RBAC) are implemented to restrict data access to authorized users only.
+
+### 6.4 Deployment Requirements
+
+- The system SHALL be deployable by following the instructions in README.md without requiring specialized DevOps knowledge.
+- The backend SHALL start successfully and connect to MongoDB before accepting API requests. If MongoDB is unavailable at startup, the process SHALL exit with a non-zero exit code and a descriptive error message.
+- Environment variables SHALL be loaded from a .env file in the ackend/ directory using the dotenv package.
+
+---
+
+## Appendix A: Glossary
+
+| Term | Definition |
+|------|-----------|
+| **HMS** | Hospital Management System  the software product described in this SRS. |
+| **SRS** | Software Requirements Specification  this document. |
+| **JWT** | JSON Web Token  a compact, URL-safe token format used for authentication and authorization. |
+| **RBAC** | Role-Based Access Control  a security model where access to resources is determined by the user's assigned role (Patient, Doctor, Admin). |
+| **SPA** | Single-Page Application  a web application that loads a single HTML page and dynamically updates content without full page reloads. |
+| **REST** | Representational State Transfer  an architectural style for designing networked applications using HTTP methods (GET, POST, PUT, DELETE). |
+| **API** | Application Programming Interface  a set of defined endpoints through which the frontend communicates with the backend. |
+| **ODM** | Object-Document Mapper  a library (Mongoose) that maps JavaScript objects to MongoDB documents. |
+| **SMTP** | Simple Mail Transfer Protocol  the protocol used by Nodemailer to send emails via Gmail. |
+| **UPI** | Unified Payments Interface  India's real-time payment system used for bill payments in this application. |
+| **INR** | Indian National Rupee (₹)  the currency used for all monetary values in the system. |
+| **bcryptjs** | A JavaScript library for hashing passwords using the bcrypt algorithm. |
+| **Multer** | A Node.js middleware for handling multipart/form-data, used for file uploads. |
+| **Node-Cron** | A Node.js library for scheduling tasks using cron syntax. Used for daily appointment reminders. |
+| **Base64** | A binary-to-text encoding scheme used to store file contents as strings in MongoDB. |
+| **Slot** | A 30-minute time block within a doctor's schedule that can be booked by a patient for an appointment. |
+| **Leave** | A date on which a doctor is marked as unavailable, blocking all appointment bookings for that date. |
+| **DoctorSchedule** | A date-specific schedule document that overrides the doctor's weekly recurring availability for a particular calendar date. |
+| **Diagnosis** | Clinical findings recorded by a doctor on a completed appointment, stored in the Appointment.diagnosis field. |
+| **Prescription** | Textual medical instructions recorded by a doctor on a completed appointment, stored in Appointment.prescription. |
+| **Bill** | A financial document itemizing charges for a patient's medical services, with a payment status and UPI payment workflow. |
+| **MedicalRecord** | A document storing a patient's medical report (Lab Report, Prescription, Scan Report, or Other) with an optional base64-encoded file. |
+| **Notification** | An in-app message stored in MongoDB and displayed to a user via the notification bell icon in the header. |
+| **ProtectedRoute** | A React component that wraps route elements to enforce authentication and role-based access control on the frontend. |
+| **AuthContext** | A React Context that stores the authenticated user's information (token, role, name) and provides login/logout functions to all components. |
+| **Vite** | A modern frontend build tool and development server used to build and serve the React SPA. |
+| **Mongoose** | A MongoDB ODM library for Node.js that provides schema validation, query building, and middleware hooks. |
+| **Express.js** | A minimal and flexible Node.js web application framework used to build the REST API backend. |
+
+---
+
+## Appendix B: Analysis Models
+
+### B.1 System Architecture Diagram
+
+`
+
+                        CLIENT BROWSER                           
+     
+                React 19 SPA (Vite)                           
+                        
+     Patient      Doctor      Admin                   
+      Pages       Pages       Pages                   
+                        
+           AuthContext (JWT) + ProtectedRoute                 
+                      Axios HTTP Client                       
+     
+
+                               HTTP/REST (port 5000)
+                              
+
+                   NODE.JS + EXPRESS.JS v5                       
+    
+                      Middleware Stack                         
+    CORS  JSON Parser  Security Headers  Rate Limiter      
+    JWT Auth Middleware  Input Validation  Error Handler    
+    
+    
+                        API Routes                            
+    /api/auth  /api/doctors  /api/appointments                
+    /api/schedules  /api/bills  /api/records                  
+    /api/admin  /api/ratings  /api/feedback                   
+    /api/notifications  /api/leaves  /api/reports             
+    
+    
+                       Utilities                              
+    sendEmail (Nodemailer)    reminderJob (Node-Cron)        
+    logger    generateToken (JWT)                           
+    
+
+          Mongoose ODM                     Gmail SMTP
+                                          
+              
+   MongoDB 7.x                   Gmail SMTP       
+  (port 27017)                   (Nodemailer)     
+                                                 
+  Collections:                   Email Events:   
+  users                          - Registration  
+  doctors                        - Appointments  
+  appointments                   - Bills         
+  bills                          - Reports       
+  medicalrecords                 - Reminders     
+  doctorschedules              
+  doctorleaves   
+  doctorratings  
+  feedbacks      
+  notifications  
+
+`
+
+### B.2 User Role Hierarchy
+
+`
+                    
+                        ADMIN      (Highest Privilege)
+                                   - Manage all entities
+                                   - View all data
+                    
+                           
+              
+                                       
+                  
+          DOCTOR                  PATIENT   
+                                            
+        - Own appts             - Own appts 
+        - Own sched             - Own bills 
+        - Own bills             - Own records
+        - Own leaves            - Rate docs 
+                  
+`
+
+### B.3 Appointment State Machine
+
+`
+                    
+                     PENDING   Patient books appointment
+                    
+                         
+           
+                                     
+                                     
+          
+       APPROVED    REJECTED    CANCELLED 
+          
+           
+            Doctor marks complete
+           
+      
+       COMPLETED   Auto-generate Bill
+           Record Diagnosis/Medicines
+`
+
+### B.4 Bill Payment State Machine
+
+`
+         
+          UNPAID   Bill created (auto or manual)
+         
+              Patient clicks "Pay"
+             
+    
+     PAYMENT REQUESTED  Email notification to Admin
+    
+              Admin verifies UPI payment
+             
+         
+          PAID   Receipt email to Patient
+         
+
+    
+     PARTIAL   Admin records partial payment
+    
+`
+
+### B.5 Entity-Relationship Overview
+
+`
+User (1)  (1) Doctor
+                           
+   (Patient)               
+                           
+   (many) Appointment 
+           
+            (many) Bill
+            (1) MedicalRecord (prescription)
+  
+   (many) MedicalRecord (uploaded reports)
+   (many) Bill
+   (many) Notification
+   (many) Feedback
+   (many) DoctorRating
+
+Doctor  (many) DoctorSchedule
+        (many) DoctorLeave
+        (many) DoctorRating
+`
+
+---
+
+## Appendix C: Issues List
+
+The following is a list of known limitations, open issues, and deferred items for the Hospital Management System v1.0:
+
+| ID | Issue | Status | Priority | Notes |
+|----|-------|--------|----------|-------|
+| ISS-001 | Medical report files stored as base64 in MongoDB can significantly increase database size for large files or many patients. A dedicated file storage service (e.g., AWS S3, Cloudinary) would be more scalable. | Open | Medium | Deferred to v2.0 |
+| ISS-002 | The Admin account must be created manually by setting ole: "Admin" directly in MongoDB. There is no admin registration UI or seeding script. | Open | Low | Acceptable for v1.0 academic scope |
+| ISS-003 | The payment system relies on manual UPI verification by the Admin. There is no automated payment gateway integration (e.g., Razorpay, PayU). | Open | Medium | Deferred to v2.0 |
+| ISS-004 | The rate limiter is disabled in development mode. Production deployment requires manual verification that NODE_ENV=production is set in the .env file. | Open | High | Must be addressed before any production deployment |
+| ISS-005 | Email notifications depend on Gmail SMTP with an App Password. If Google changes its App Password policy, email functionality will break. | Open | Medium | Consider migrating to a dedicated email service (SendGrid, AWS SES) in v2.0 |
+| ISS-006 | The Admin Activity Overview page (GET /api/admin/activity) performs N+1 database queries (one per doctor and one per patient). This may cause performance issues with large datasets. | Open | Medium | Optimize with MongoDB aggregation pipelines in v2.0 |
+| ISS-007 | There is no pagination on any list endpoint (appointments, patients, bills, etc.). All records are returned in a single response, which may cause performance issues with large datasets. | Open | Medium | Deferred to v2.0 |
+| ISS-008 | The system does not support multi-timezone operation. All dates and times are stored and displayed in the server's local timezone. | Open | Low | Not required for single-hospital deployment |
+| ISS-009 | Doctor ratings allow one rating per patient per doctor (not per appointment). A patient who has multiple appointments with the same doctor can only submit one rating. | Open | Low | Acceptable for v1.0 |
+| ISS-010 | The DoctorSchedule model stores files as base64 strings. There is no cleanup mechanism for orphaned medical records if a patient or doctor account is deleted. | Open | Low | Deferred to v2.0 |
+| ISS-011 | The frontend does not implement token refresh. When the JWT expires, the user is silently redirected to the login page via the Axios 401 interceptor. | Open | Low | Acceptable for v1.0 academic scope |
+| ISS-012 | There is no audit log for admin actions (e.g., who deleted a doctor, who marked a bill as paid). | Open | Low | Deferred to v2.0 |
