@@ -61,8 +61,8 @@ const DoctorCard = ({ doc }) => {
     setSlotsLoading(true);
     setOnLeave(false);
     try {
-      const { data } = await api.get(`/appointments/slots/${doc._id}/${date}`);
-      if (data.onLeave) { setOnLeave(true); setSlots([]); }
+      const { data } = await api.get(`/schedules/slots/${doc._id}/${date}`);
+      if (data.onLeave || data.isOff) { setOnLeave(true); setSlots([]); }
       else setSlots(data.slots || []);
     } catch { setSlots([]); }
     finally { setSlotsLoading(false); }
