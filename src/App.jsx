@@ -33,6 +33,7 @@ import ManagePatients from './pages/admin/ManagePatients';
 import ManageAppointments from './pages/admin/ManageAppointments';
 import AdminProfile from './pages/admin/AdminProfile';
 import ManageBills from './pages/admin/ManageBills';
+import NotFound from './pages/NotFound';
 
 function App() {
   return (
@@ -78,6 +79,9 @@ function App() {
             <Route path="/admin/appointments" element={<ProtectedRoute roles={['Admin']}><ManageAppointments /></ProtectedRoute>} />
             <Route path="/admin/billing" element={<ProtectedRoute roles={['Admin']}><ManageBills /></ProtectedRoute>} />
             <Route path="/admin/profile" element={<ProtectedRoute roles={['Admin']}><AdminProfile /></ProtectedRoute>} />
+
+            {/* 404 */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
         <Footer />
