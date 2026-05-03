@@ -133,67 +133,97 @@ const getAppointments = async (req, res) => {
   }
 };
 
-// @desc    Update appointment status (Admin/Doctor)
+// @desc    Update appointment status (Admin/Doctor) + add diagnosis/medicine/bill
 // @route   PUT /api/appointments/:id/status
 // @access  Private/Doctor/Admin
 const updateAppointmentStatus = async (req, res) => {
-  const { status } = req.body;
+  const { status, prescription, diagnosis, medicines, charges } = req.body;
   try {
-    const appointment = await Appointment.findById(req.params.id);
+    const appointment = await Appointment.findById(req.params.id)
+      .populate('patient', 'name email')
+      .populate({ path: 'doctor', populate: { path: 'user', select: 'name' } });
 
-    if (appointment) {
-      appointment.status = status;
-      if (req.body.prescription) {
-        appointment.prescription = req.body.prescription;
-        
-        // Create Medical Record
-        await MedicalRecord.create({
-          patient: appointment.patient,
-          doctor: appointment.doctor,
-          type: 'Prescription',
-          title: `Consultation - ${appointment.reasonForVisit}`,
-          prescription: req.body.prescription,
-          date: new Date()
-        });
+    if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
 
-        // Notify patient about prescription
-        await Notification.create({
-          user: appointment.patient,
-          title: '💊 New Prescription Added',
-          message: `Your doctor has added a prescription for your appointment on ${new Date(appointment.appointmentDate).toLocaleDateString('en-IN')}.`,
-          type: 'prescription'
-        });
-      }
+    appointment.status = status;
 
-      // Notify patient about status change
-      if (status === 'Approved') {
-        await Notification.create({
-          user: appointment.patient,
-          title: '✅ Appointment Approved',
-          message: `Your appointment for ${appointment.department} on ${new Date(appointment.appointmentDate).toLocaleDateString('en-IN')} at ${appointment.appointmentTime} has been approved.`,
-          type: 'appointment'
-        });
-      } else if (status === 'Cancelled') {
-        await Notification.create({
-          user: appointment.patient,
-          title: '❌ Appointment Cancelled',
-          message: `Your appointment for ${appointment.department} on ${new Date(appointment.appointmentDate).toLocaleDateString('en-IN')} has been cancelled.`,
-          type: 'appointment'
-        });
-      } else if (status === 'Completed') {
-        await Notification.create({
-          user: appointment.patient,
-          title: '🏥 Appointment Completed',
-          message: `Your appointment for ${appointment.department} on ${new Date(appointment.appointmentDate).toLocaleDateString('en-IN')} has been marked as completed.`,
-          type: 'appointment'
-        });
-      }
+    // Save diagnosis
+    if (diagnosis !== undefined) appointment.diagnosis = diagnosis;
 
-      const updatedAppointment = await appointment.save();
-      res.json(updatedAppointment);
-    } else {
-      res.status(404).json({ message: 'Appointment not found' });
+    // Save medicines
+    if (medicines !== undefined) appointment.medicines = medicines;
+
+    // Save prescription text
+    if (prescription) {
+      appointment.prescription = prescription;
+
+      // Create Medical Record for prescription
+      await MedicalRecord.create({
+        patient: appointment.patient._id || appointment.patient,
+        doctor: appointment.doctor._id || appointment.doctor,
+        type: 'Prescription',
+        title: `Consultation - ${appointment.reasonForVisit}`,
+        prescription,
+        date: new Date(),
+      });
+
+      await Notification.create({
+        user: appointment.patient._id || appointment.patient,
+        title: '💊 New Prescription Added',
+        message: `Your doctor has added a prescription for your appointment on ${new Date(appointment.appointmentDate).toLocaleDateString('en-IN')}.`,
+        type: 'prescription',
+      });
     }
+
+    // Auto-create bill from charges if provided
+    if (charges && charges.length > 0 && status === 'Completed') {
+      const Bill = require('../models/Bill');
+      const totalAmount = charges.reduce((s, c) => s + Number(c.amount), 0);
+      if (totalAmount > 0) {
+        const bill = await Bill.create({
+          patient: appointment.patient._id || appointment.patient,
+          doctor: appointment.doctor._id || appointment.doctor,
+          appointment: appointment._id,
+          items: charges.map(c => ({ description: c.description, amount: Number(c.amount) })),
+          totalAmount,
+        });
+
+        // Notify patient about bill
+        await Notification.create({
+          user: appointment.patient._id || appointment.patient,
+          title: '🧾 New Bill Generated',
+          message: `A bill of ₹${totalAmount.toLocaleString('en-IN')} has been generated for your appointment. Check My Bills.`,
+          type: 'bill',
+        });
+      }
+    }
+
+    // Status-based notifications
+    if (status === 'Approved') {
+      await Notification.create({
+        user: appointment.patient._id || appointment.patient,
+        title: '✅ Appointment Approved',
+        message: `Your appointment for ${appointment.department} on ${new Date(appointment.appointmentDate).toLocaleDateString('en-IN')} at ${appointment.appointmentTime} has been approved.`,
+        type: 'appointment',
+      });
+    } else if (status === 'Cancelled') {
+      await Notification.create({
+        user: appointment.patient._id || appointment.patient,
+        title: '❌ Appointment Cancelled',
+        message: `Your appointment for ${appointment.department} on ${new Date(appointment.appointmentDate).toLocaleDateString('en-IN')} has been cancelled.`,
+        type: 'appointment',
+      });
+    } else if (status === 'Completed') {
+      await Notification.create({
+        user: appointment.patient._id || appointment.patient,
+        title: '🏥 Appointment Completed',
+        message: `Your appointment for ${appointment.department} on ${new Date(appointment.appointmentDate).toLocaleDateString('en-IN')} has been marked as completed.`,
+        type: 'appointment',
+      });
+    }
+
+    const updatedAppointment = await appointment.save();
+    res.json(updatedAppointment);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

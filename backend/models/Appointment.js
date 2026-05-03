@@ -32,6 +32,18 @@ const appointmentSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  diagnosis: {
+    type: String,
+    default: ''
+  },
+  medicines: [
+    {
+      name:     { type: String },
+      dosage:   { type: String },
+      duration: { type: String },
+      notes:    { type: String },
+    }
+  ],
   reasonForVisit: {
     type: String,
     required: true
