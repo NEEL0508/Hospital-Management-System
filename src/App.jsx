@@ -33,6 +33,7 @@ import ManagePatients from './pages/admin/ManagePatients';
 import ManageAppointments from './pages/admin/ManageAppointments';
 import AdminProfile from './pages/admin/AdminProfile';
 import ManageBills from './pages/admin/ManageBills';
+import AdminActivity from './pages/admin/AdminActivity';
 import NotFound from './pages/NotFound';
 
 function App() {
@@ -77,8 +78,9 @@ function App() {
             <Route path="/admin/departments" element={<ProtectedRoute roles={['Admin']}><ManageDepartments /></ProtectedRoute>} />
             <Route path="/admin/patients" element={<ProtectedRoute roles={['Admin']}><ManagePatients /></ProtectedRoute>} />
             <Route path="/admin/appointments" element={<ProtectedRoute roles={['Admin']}><ManageAppointments /></ProtectedRoute>} />
-            <Route path="/admin/billing" element={<ProtectedRoute roles={['Admin']}><ManageBills /></ProtectedRoute>} />
-            <Route path="/admin/profile" element={<ProtectedRoute roles={['Admin']}><AdminProfile /></ProtectedRoute>} />
+            <Route path="/admin/billing"       element={<ProtectedRoute roles={['Admin']}><ManageBills /></ProtectedRoute>} />
+            <Route path="/admin/activity"      element={<ProtectedRoute roles={['Admin']}><AdminActivity /></ProtectedRoute>} />
+            <Route path="/admin/profile"       element={<ProtectedRoute roles={['Admin']}><AdminProfile /></ProtectedRoute>} />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
