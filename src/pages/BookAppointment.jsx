@@ -57,7 +57,7 @@ const BookAppointment = () => {
     setSlots([]);
   }, [formData.doctor, doctors]);
 
-  // When date changes — fetch slots from API
+  // When date changes — fetch slots from new schedule API
   useEffect(() => {
     if (!formData.appointmentDate || !formData.doctor) { setSlots([]); return; }
     const fetchSlots = async () => {
@@ -66,8 +66,9 @@ const BookAppointment = () => {
       setNoSchedule(false);
       setFormData(prev => ({ ...prev, appointmentTime: '' }));
       try {
-        const { data } = await api.get(`/appointments/slots/${formData.doctor}/${formData.appointmentDate}`);
-        if (data.onLeave) { setOnLeave(true); setSlots([]); }
+        // Use new schedule-based slot API (falls back to weekly availability)
+        const { data } = await api.get(`/schedules/slots/${formData.doctor}/${formData.appointmentDate}`);
+        if (data.onLeave || data.isOff) { setOnLeave(true); setSlots([]); }
         else if (data.noSchedule) { setNoSchedule(true); setSlots([]); }
         else setSlots(data.slots || []);
       } catch {
