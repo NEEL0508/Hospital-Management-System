@@ -4,6 +4,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const User = require('../models/User');
+const Doctor = require('../models/Doctor');
+const MedicalRecord = require('../models/MedicalRecord');
 const sendEmail = require('../utils/sendEmail');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -31,10 +33,10 @@ const upload = multer({
 });
 
 // @route POST /api/reports/send
-// @desc  Doctor uploads report and sends to patient email
+// @desc  Doctor uploads report, saves to DB, and sends to patient email
 router.post('/send', protect, upload.single('report'), async (req, res) => {
   try {
-    const { patientId, patientName, patientEmail, reportTitle, notes } = req.body;
+    const { patientId, patientName, patientEmail, reportTitle, notes, reportType } = req.body;
 
     if (!req.file) return res.status(400).json({ message: 'Please upload a file' });
 
@@ -42,6 +44,33 @@ router.post('/send', protect, upload.single('report'), async (req, res) => {
     const filePath = req.file.path;
     const fileName = req.file.originalname;
 
+    // Find doctor profile to get doctor._id for MedicalRecord
+    const doctorProfile = await Doctor.findOne({ user: req.user._id });
+    if (!doctorProfile) {
+      fs.unlinkSync(filePath);
+      return res.status(404).json({ message: 'Doctor profile not found' });
+    }
+
+    // Determine report type
+    const type = reportType || 'Lab Report';
+
+    // Save a copy of the file as base64 for in-app viewing
+    const fileBuffer = fs.readFileSync(filePath);
+    const base64File = fileBuffer.toString('base64');
+    const mimeType = req.file.mimetype;
+    const fileDataUrl = `data:${mimeType};base64,${base64File}`;
+
+    // Save medical record to DB so patient can view it in the app
+    await MedicalRecord.create({
+      patient: patientId,
+      doctor: doctorProfile._id,
+      type,
+      title: reportTitle,
+      fileUrl: fileDataUrl,
+      prescription: notes || '',
+    });
+
+    // Send email with attachment
     await sendEmail({
       to: patientEmail,
       subject: `📄 Medical Report from Dr. ${doctorName} - ${reportTitle}`,
@@ -59,6 +88,7 @@ router.post('/send', protect, upload.single('report'), async (req, res) => {
             <div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:16px;margin:20px 0;">
               <p style="margin:0 0 8px;font-weight:700;color:#0f766e;font-size:14px;">📄 Report Details</p>
               <p style="margin:4px 0;color:#1e293b;font-size:14px;"><strong>Title:</strong> ${reportTitle}</p>
+              <p style="margin:4px 0;color:#1e293b;font-size:14px;"><strong>Type:</strong> ${type}</p>
               <p style="margin:4px 0;color:#1e293b;font-size:14px;"><strong>Doctor:</strong> Dr. ${doctorName}</p>
               <p style="margin:4px 0;color:#1e293b;font-size:14px;"><strong>Date:</strong> ${new Date().toLocaleDateString('en-IN')}</p>
               <p style="margin:4px 0;color:#1e293b;font-size:14px;"><strong>File:</strong> ${fileName}</p>
@@ -69,6 +99,10 @@ router.post('/send', protect, upload.single('report'), async (req, res) => {
               <p style="margin:0 0 6px;font-weight:700;color:#92400e;font-size:14px;">📝 Doctor's Notes</p>
               <p style="margin:0;color:#78350f;font-size:14px;line-height:1.6;">${notes}</p>
             </div>` : ''}
+
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin:16px 0;">
+              <p style="margin:0;color:#1d4ed8;font-size:13px;">💡 You can also view this report in your <strong>Medical Records</strong> section on the website.</p>
+            </div>
 
             <div style="background:#f8fafc;border-radius:10px;padding:16px;margin:16px 0;">
               <p style="margin:0;color:#64748b;font-size:13px;">⚠️ This report is confidential and intended only for the patient mentioned above. Please keep it safe for your medical records.</p>
@@ -82,10 +116,10 @@ router.post('/send', protect, upload.single('report'), async (req, res) => {
       attachments: [{ filename: fileName, path: filePath }]
     });
 
-    // Delete file after sending
+    // Delete temp file after sending
     fs.unlinkSync(filePath);
 
-    res.json({ message: `Report sent successfully to ${patientEmail}` });
+    res.json({ message: `Report sent successfully to ${patientEmail} and saved to patient records.` });
   } catch (error) {
     console.error('Report send error:', error);
     if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);

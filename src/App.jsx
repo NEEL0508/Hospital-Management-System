@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
 import About from './pages/About';
 import Contact from './pages/Contact';
@@ -32,6 +33,7 @@ import ManagePatients from './pages/admin/ManagePatients';
 import ManageAppointments from './pages/admin/ManageAppointments';
 import AdminProfile from './pages/admin/AdminProfile';
 import ManageBills from './pages/admin/ManageBills';
+import NotFound from './pages/NotFound';
 
 function App() {
   return (
@@ -50,33 +52,36 @@ function App() {
             <Route path="/reset-password/:token" element={<ResetPassword />} />
 
             {/* Patient */}
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/find-doctors" element={<FindDoctors />} />
-            <Route path="/book-appointment" element={<BookAppointment />} />
-            <Route path="/my-appointments" element={<MyAppointments />} />
-            <Route path="/medical-records" element={<MedicalRecords />} />
-            <Route path="/feedback" element={<Feedback />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/my-bills" element={<MyBills />} />
+            <Route path="/dashboard" element={<ProtectedRoute roles={['Patient']}><Dashboard /></ProtectedRoute>} />
+            <Route path="/find-doctors" element={<ProtectedRoute><FindDoctors /></ProtectedRoute>} />
+            <Route path="/book-appointment" element={<ProtectedRoute roles={['Patient']}><BookAppointment /></ProtectedRoute>} />
+            <Route path="/my-appointments" element={<ProtectedRoute roles={['Patient']}><MyAppointments /></ProtectedRoute>} />
+            <Route path="/medical-records" element={<ProtectedRoute roles={['Patient']}><MedicalRecords /></ProtectedRoute>} />
+            <Route path="/feedback" element={<ProtectedRoute roles={['Patient']}><Feedback /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/my-bills" element={<ProtectedRoute roles={['Patient']}><MyBills /></ProtectedRoute>} />
 
             {/* Doctor */}
-            <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
-            <Route path="/doctor/appointments" element={<DoctorAppointments />} />
-            <Route path="/doctor/patients" element={<DoctorPatients />} />
-            <Route path="/doctor/billing" element={<DoctorBilling />} />
-            <Route path="/doctor/leave" element={<DoctorLeave />} />
-            <Route path="/doctor/schedule" element={<DoctorSchedule />} />
-            <Route path="/doctor/profile" element={<DoctorProfile />} />
+            <Route path="/doctor/dashboard" element={<ProtectedRoute roles={['Doctor']}><DoctorDashboard /></ProtectedRoute>} />
+            <Route path="/doctor/appointments" element={<ProtectedRoute roles={['Doctor']}><DoctorAppointments /></ProtectedRoute>} />
+            <Route path="/doctor/patients" element={<ProtectedRoute roles={['Doctor']}><DoctorPatients /></ProtectedRoute>} />
+            <Route path="/doctor/billing" element={<ProtectedRoute roles={['Doctor']}><DoctorBilling /></ProtectedRoute>} />
+            <Route path="/doctor/leave" element={<ProtectedRoute roles={['Doctor']}><DoctorLeave /></ProtectedRoute>} />
+            <Route path="/doctor/schedule" element={<ProtectedRoute roles={['Doctor']}><DoctorSchedule /></ProtectedRoute>} />
+            <Route path="/doctor/profile" element={<ProtectedRoute roles={['Doctor']}><DoctorProfile /></ProtectedRoute>} />
 
             {/* Admin */}
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/manage-doctors" element={<ManageDoctors />} />
-            <Route path="/admin/add-doctor" element={<AddDoctor />} />
-            <Route path="/admin/departments" element={<ManageDepartments />} />
-            <Route path="/admin/patients" element={<ManagePatients />} />
-            <Route path="/admin/appointments" element={<ManageAppointments />} />
-            <Route path="/admin/billing" element={<ManageBills />} />
-            <Route path="/admin/profile" element={<AdminProfile />} />
+            <Route path="/admin/dashboard" element={<ProtectedRoute roles={['Admin']}><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/manage-doctors" element={<ProtectedRoute roles={['Admin']}><ManageDoctors /></ProtectedRoute>} />
+            <Route path="/admin/add-doctor" element={<ProtectedRoute roles={['Admin']}><AddDoctor /></ProtectedRoute>} />
+            <Route path="/admin/departments" element={<ProtectedRoute roles={['Admin']}><ManageDepartments /></ProtectedRoute>} />
+            <Route path="/admin/patients" element={<ProtectedRoute roles={['Admin']}><ManagePatients /></ProtectedRoute>} />
+            <Route path="/admin/appointments" element={<ProtectedRoute roles={['Admin']}><ManageAppointments /></ProtectedRoute>} />
+            <Route path="/admin/billing" element={<ProtectedRoute roles={['Admin']}><ManageBills /></ProtectedRoute>} />
+            <Route path="/admin/profile" element={<ProtectedRoute roles={['Admin']}><AdminProfile /></ProtectedRoute>} />
+
+            {/* 404 */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
         <Footer />

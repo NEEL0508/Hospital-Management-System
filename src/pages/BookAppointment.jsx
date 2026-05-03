@@ -1,23 +1,32 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { FileText, Info } from 'lucide-react';
+import { FileText, Info, Clock, Calendar, CheckCircle, XCircle, User } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import api from '../api';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const BookAppointment = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [doctors, setDoctors] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [selectedDoctorData, setSelectedDoctorData] = useState(null);
-  const [availableSlots, setAvailableSlots] = useState([]);
+  const [slots, setSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [onLeave, setOnLeave] = useState(false);
+  const [noSchedule, setNoSchedule] = useState(false);
+
   const [formData, setFormData] = useState({
-    department: '', doctor: '', appointmentDate: '', appointmentTime: '', reasonForVisit: ''
+    department: location.state?.department || '',
+    doctor: location.state?.doctorId || '',
+    appointmentDate: '',
+    appointmentTime: '',
+    reasonForVisit: '',
   });
 
   useEffect(() => {
@@ -27,6 +36,11 @@ const BookAppointment = () => {
         setDoctors(data);
         const uniqueDepts = [...new Set(data.map(d => d.specialization).filter(Boolean))];
         setDepartments(uniqueDepts);
+        // If pre-selected doctor from FindDoctors
+        if (location.state?.doctorId) {
+          const doc = data.find(d => d._id === location.state.doctorId);
+          if (doc) setSelectedDoctorData(doc);
+        }
       } catch {
         toast.error('Failed to load doctors');
       }
@@ -34,105 +48,55 @@ const BookAppointment = () => {
     fetchDoctors();
   }, []);
 
-  // When doctor changes, load their availability
+  // When doctor changes
   useEffect(() => {
-    if (!formData.doctor) {
-      setSelectedDoctorData(null);
-      setAvailableSlots([]);
-      return;
-    }
+    if (!formData.doctor) { setSelectedDoctorData(null); setSlots([]); return; }
     const doc = doctors.find(d => d._id === formData.doctor);
     setSelectedDoctorData(doc || null);
     setFormData(prev => ({ ...prev, appointmentDate: '', appointmentTime: '' }));
-    setAvailableSlots([]);
-  }, [formData.doctor]);
+    setSlots([]);
+  }, [formData.doctor, doctors]);
 
-  // When date changes, find matching time slots
+  // When date changes — fetch slots from API
   useEffect(() => {
-    if (!formData.appointmentDate || !selectedDoctorData) {
-      setAvailableSlots([]);
-      return;
-    }
-    const dayName = DAYS[new Date(formData.appointmentDate).getDay()];
-    const slots = (selectedDoctorData.availability || []).filter(s => s.day === dayName);
-    setAvailableSlots(slots);
-    setFormData(prev => ({ ...prev, appointmentTime: '' }));
-  }, [formData.appointmentDate, selectedDoctorData]);
+    if (!formData.appointmentDate || !formData.doctor) { setSlots([]); return; }
+    const fetchSlots = async () => {
+      setSlotsLoading(true);
+      setOnLeave(false);
+      setNoSchedule(false);
+      setFormData(prev => ({ ...prev, appointmentTime: '' }));
+      try {
+        const { data } = await api.get(`/appointments/slots/${formData.doctor}/${formData.appointmentDate}`);
+        if (data.onLeave) { setOnLeave(true); setSlots([]); }
+        else if (data.noSchedule) { setNoSchedule(true); setSlots([]); }
+        else setSlots(data.slots || []);
+      } catch {
+        setSlots([]);
+      } finally {
+        setSlotsLoading(false);
+      }
+    };
+    fetchSlots();
+  }, [formData.appointmentDate, formData.doctor]);
 
-  // Generate time options from slot range (every 30 min)
-  const generateTimeOptions = (startTime, endTime) => {
-    const times = [];
-    const [startH, startM] = startTime.split(':').map(Number);
-    const [endH, endM] = endTime.split(':').map(Number);
-    let current = startH * 60 + startM;
-    const end = endH * 60 + endM;
-    while (current < end) {
-      const h = Math.floor(current / 60).toString().padStart(2, '0');
-      const m = (current % 60).toString().padStart(2, '0');
-      times.push(`${h}:${m}`);
-      current += 30;
-    }
-    return times;
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const allTimeOptions = availableSlots.flatMap(s => generateTimeOptions(s.startTime, s.endTime));
-
-  // Check if date is available (doctor has schedule that day)
-  const isDateAvailable = (dateStr) => {
-    if (!selectedDoctorData || !dateStr) return true;
-    const dayName = DAYS[new Date(dateStr).getDay()];
-    return (selectedDoctorData.availability || []).some(s => s.day === dayName);
-  };
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleSlotClick = (slot) => {
+    if (slot.status === 'booked') return; // can't select booked
+    setFormData(prev => ({ ...prev, appointmentTime: slot.time }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!user) {
-      toast.error('Please login to book an appointment');
-      navigate('/login');
-      return;
-    }
-
-    // Check past time on today's date
-    const today = new Date().toISOString().split('T')[0];
-    if (formData.appointmentDate === today && formData.appointmentTime) {
-      const now = new Date();
-      const [h, m] = formData.appointmentTime.split(':').map(Number);
-      const selected = new Date();
-      selected.setHours(h, m, 0, 0);
-      if (selected <= now) {
-        toast.error('Please select a future time for today\'s appointment.');
-        return;
-      }
-    }
-
-    // Check schedule
-    if (selectedDoctorData && formData.appointmentDate) {
-      if (!isDateAvailable(formData.appointmentDate)) {
-        toast.error('Doctor is not available on this day. Please check their schedule.');
-        return;
-      }
-    }
-
-    // Check leave
-    if (formData.doctor && formData.appointmentDate) {
-      try {
-        const { data } = await api.get(`/leaves/check/${formData.doctor}/${formData.appointmentDate}`);
-        if (data.onLeave) {
-          toast.error('Doctor is on leave on this date. Please select another date.');
-          return;
-        }
-      } catch {}
-    }
+    if (!user) { toast.error('Please login to book an appointment'); navigate('/login'); return; }
+    if (!formData.appointmentTime) { toast.error('Please select a time slot'); return; }
+    if (onLeave) { toast.error('Doctor is on leave on this date'); return; }
 
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
       await api.post('/appointments', formData, config);
       toast.success('Appointment booked successfully!');
-      navigate('/dashboard');
+      navigate('/my-appointments');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to book appointment');
     }
@@ -142,79 +106,78 @@ const BookAppointment = () => {
     ? [...new Set((selectedDoctorData.availability || []).map(s => s.day))]
     : [];
 
+  // Slot color logic
+  const getSlotStyle = (slot) => {
+    if (slot.status === 'booked') {
+      // Check if it's the current patient's own booking
+      return {
+        bg: '#fee2e2', border: '#fca5a5', color: '#991b1b',
+        cursor: 'not-allowed', label: 'Booked',
+      };
+    }
+    if (formData.appointmentTime === slot.time) {
+      return { bg: '#dcfce7', border: '#4ade80', color: '#166534', cursor: 'pointer', label: 'Selected' };
+    }
+    return { bg: 'white', border: '#e2e8f0', color: '#1e293b', cursor: 'pointer', label: '' };
+  };
+
   return (
     <div className="dashboard-layout">
       <Sidebar activeId="book" />
-      <main className="dashboard-content">
-        <header className="dashboard-welcome">
-          <h1 className="welcome-title">Book Appointment</h1>
-          <p className="welcome-subtitle">Schedule a consultation with our doctors</p>
+      <main className="dashboard-content" style={{ backgroundColor: '#f8fafc', padding: '2rem' }}>
+        <header style={{ marginBottom: '1.5rem' }}>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.25rem' }}>Book Appointment</h1>
+          <p style={{ color: '#64748b' }}>Schedule a consultation with our doctors</p>
         </header>
 
-        <div className="book-appointment-card">
-          <form className="appointment-form" onSubmit={handleSubmit}>
+        <div style={{ backgroundColor: 'white', borderRadius: '0.75rem', border: '1px solid #e2e8f0', padding: '2rem', maxWidth: '800px' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-            <div className="form-group">
-              <label>Department *</label>
-              <select className="form-select" name="department" required value={formData.department} onChange={handleChange}>
-                <option value="" disabled>Select Department</option>
-                {departments.map((dept, i) => (
-                  <option key={i} value={dept}>{dept}</option>
-                ))}
+            {/* Department */}
+            <div>
+              <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Department *</label>
+              <select name="department" required value={formData.department} onChange={handleChange}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', backgroundColor: 'white' }}>
+                <option value="">Select Department</option>
+                {departments.map((dept, i) => <option key={i} value={dept}>{dept}</option>)}
               </select>
             </div>
 
-            <div className="form-group">
-              <label>Select Doctor *</label>
-              <select className="form-select" name="doctor" required value={formData.doctor} onChange={handleChange}>
-                <option value="" disabled>Select Doctor</option>
+            {/* Doctor */}
+            <div>
+              <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Select Doctor *</label>
+              <select name="doctor" required value={formData.doctor} onChange={handleChange}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', backgroundColor: 'white' }}>
+                <option value="">Select Doctor</option>
                 {doctors
                   .filter(doc => !formData.department || doc.specialization === formData.department)
                   .map(doc => (
                     <option key={doc._id} value={doc._id}>
-                      Dr. {doc.user?.name} ({doc.specialization}) - ₹{doc.feesPerConsultation}
+                      Dr. {doc.user?.name} ({doc.specialization}) — ₹{doc.feesPerConsultation?.toLocaleString('en-IN')}
                     </option>
                   ))}
               </select>
             </div>
 
-            {/* Show doctor's available days */}
+            {/* Doctor Schedule Info */}
             {selectedDoctorData && availableDays.length > 0 && (
-              <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0.5rem', padding: '1rem', marginBottom: '0.5rem' }}>
+              <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0.5rem', padding: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   <Info size={15} color="#16a34a" />
                   <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#166534' }}>
-                    Dr. {selectedDoctorData.user?.name}'s Schedule
+                    Dr. {selectedDoctorData.user?.name}'s Weekly Schedule
                   </span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.4rem' }}>
                   {DAYS.map(day => {
-                    const slots = (selectedDoctorData.availability || []).filter(s => s.day === day);
-                    const isAvailable = slots.length > 0;
+                    const daySlots = (selectedDoctorData.availability || []).filter(s => s.day === day);
+                    const isAvail = daySlots.length > 0;
                     return (
-                      <div key={day} style={{
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: '0.375rem',
-                        backgroundColor: isAvailable ? 'white' : '#f8fafc',
-                        border: isAvailable ? '1px solid #86efac' : '1px solid #e2e8f0',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: isAvailable ? '#166534' : '#94a3b8' }}>
-                          {day.slice(0, 3)}
-                        </span>
-                        {isAvailable ? (
-                          <div style={{ textAlign: 'right' }}>
-                            {slots.map((s, i) => (
-                              <p key={i} style={{ margin: 0, fontSize: '0.72rem', color: '#16a34a', fontWeight: 500 }}>
-                                {s.startTime} - {s.endTime}
-                              </p>
-                            ))}
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>Off</span>
-                        )}
+                      <div key={day} style={{ textAlign: 'center', padding: '0.5rem 0.25rem', borderRadius: '0.375rem', backgroundColor: isAvail ? 'white' : '#f1f5f9', border: `1px solid ${isAvail ? '#86efac' : '#e2e8f0'}` }}>
+                        <p style={{ margin: '0 0 2px', fontSize: '0.68rem', fontWeight: 700, color: isAvail ? '#166534' : '#94a3b8' }}>{day.slice(0, 3)}</p>
+                        {isAvail ? daySlots.map((s, i) => (
+                          <p key={i} style={{ margin: 0, fontSize: '0.6rem', color: '#16a34a' }}>{s.startTime}–{s.endTime}</p>
+                        )) : <p style={{ margin: 0, fontSize: '0.6rem', color: '#cbd5e1' }}>Off</p>}
                       </div>
                     );
                   })}
@@ -222,66 +185,130 @@ const BookAppointment = () => {
               </div>
             )}
 
-            {selectedDoctorData && availableDays.length === 0 && (
-              <div style={{ backgroundColor: '#fef9c3', border: '1px solid #fde68a', borderRadius: '0.5rem', padding: '0.75rem 1rem', marginBottom: '0.5rem' }}>
-                <p style={{ margin: 0, fontSize: '0.8rem', color: '#92400e' }}>⚠️ This doctor has not set their schedule yet. You can still submit a request.</p>
+            {/* Date */}
+            <div>
+              <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Appointment Date *</label>
+              <input type="date" name="appointmentDate" required
+                min={new Date().toISOString().split('T')[0]}
+                value={formData.appointmentDate} onChange={handleChange}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none' }} />
+            </div>
+
+            {/* Slot Grid */}
+            {formData.appointmentDate && formData.doctor && (
+              <div>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '0.75rem' }}>
+                  Select Time Slot *
+                </label>
+
+                {/* Legend */}
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.875rem', flexWrap: 'wrap' }}>
+                  {[
+                    { bg: 'white', border: '#e2e8f0', label: 'Available' },
+                    { bg: '#dcfce7', border: '#4ade80', label: 'Selected' },
+                    { bg: '#fee2e2', border: '#fca5a5', label: 'Booked' },
+                  ].map((item, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: '#64748b' }}>
+                      <div style={{ width: '14px', height: '14px', borderRadius: '3px', backgroundColor: item.bg, border: `1px solid ${item.border}` }} />
+                      {item.label}
+                    </div>
+                  ))}
+                </div>
+
+                {slotsLoading ? (
+                  <div style={{ textAlign: 'center', padding: '1.5rem', color: '#64748b', backgroundColor: '#f8fafc', borderRadius: '0.5rem' }}>
+                    Loading available slots...
+                  </div>
+                ) : onLeave ? (
+                  <div style={{ padding: '1rem', backgroundColor: '#fee2e2', borderRadius: '0.5rem', border: '1px solid #fca5a5', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <XCircle size={18} color="#dc2626" />
+                    <p style={{ margin: 0, color: '#991b1b', fontWeight: 600 }}>Doctor is on leave on this date. Please select another date.</p>
+                  </div>
+                ) : noSchedule ? (
+                  <div style={{ padding: '1rem', backgroundColor: '#fef9c3', borderRadius: '0.5rem', border: '1px solid #fde68a' }}>
+                    <p style={{ margin: 0, color: '#92400e' }}>⚠️ Doctor has no schedule set for {DAYS[new Date(formData.appointmentDate).getDay()]}. You can still enter a time manually.</p>
+                    <input type="time" name="appointmentTime" value={formData.appointmentTime} onChange={handleChange}
+                      style={{ marginTop: '0.75rem', padding: '0.625rem', borderRadius: '0.375rem', border: '1px solid #e2e8f0', outline: 'none', color: '#1e293b' }} />
+                  </div>
+                ) : slots.length === 0 ? (
+                  <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0', textAlign: 'center', color: '#94a3b8' }}>
+                    No slots available for this date.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '0.5rem' }}>
+                    {slots.map((slot, i) => {
+                      const style = getSlotStyle(slot);
+                      return (
+                        <button key={i} type="button" onClick={() => handleSlotClick(slot)}
+                          title={slot.status === 'booked' ? 'This slot is already booked' : 'Click to select'}
+                          style={{
+                            padding: '0.625rem 0.25rem',
+                            borderRadius: '0.5rem',
+                            border: `1.5px solid ${style.border}`,
+                            backgroundColor: style.bg,
+                            color: style.color,
+                            cursor: style.cursor,
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            textAlign: 'center',
+                            transition: 'all 0.15s',
+                            position: 'relative',
+                          }}>
+                          <Clock size={12} style={{ display: 'block', margin: '0 auto 2px' }} />
+                          {slot.time}
+                          {slot.status === 'booked' && (
+                            <div style={{ fontSize: '0.6rem', color: '#ef4444', marginTop: '1px' }}>Booked</div>
+                          )}
+                          {formData.appointmentTime === slot.time && slot.status !== 'booked' && (
+                            <div style={{ fontSize: '0.6rem', color: '#16a34a', marginTop: '1px' }}>✓ Selected</div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {formData.appointmentTime && !onLeave && (
+                  <div style={{ marginTop: '0.75rem', padding: '0.625rem 1rem', backgroundColor: '#dcfce7', borderRadius: '0.375rem', border: '1px solid #86efac', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <CheckCircle size={16} color="#16a34a" />
+                    <span style={{ fontSize: '0.875rem', color: '#166534', fontWeight: 600 }}>
+                      Selected: {formData.appointmentTime}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
-            <div className="form-row">
-              <div className="form-group">
-                <label>Appointment Date *</label>
-                <input type="date" name="appointmentDate" required className="form-input"
-                  min={new Date().toISOString().split('T')[0]}
-                  value={formData.appointmentDate} onChange={handleChange} />
-                {formData.appointmentDate && selectedDoctorData && availableDays.length > 0 && !isDateAvailable(formData.appointmentDate) && (
-                  <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#dc2626' }}>
-                    ❌ Doctor is not available on {DAYS[new Date(formData.appointmentDate).getDay()]}s
-                  </p>
-                )}
-                {formData.appointmentDate && selectedDoctorData && isDateAvailable(formData.appointmentDate) && availableDays.length > 0 && (
-                  <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#16a34a' }}>
-                    ✓ Doctor is available on {DAYS[new Date(formData.appointmentDate).getDay()]}s
-                  </p>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label>Preferred Time *</label>
-                {allTimeOptions.length > 0 ? (
-                  <select className="form-select" name="appointmentTime" required value={formData.appointmentTime} onChange={handleChange}>
-                    <option value="" disabled>Select Time Slot</option>
-                    {allTimeOptions.map((t, i) => <option key={i} value={t}>{t}</option>)}
-                  </select>
-                ) : (
-                  <input type="time" name="appointmentTime" required className="form-input"
-                    value={formData.appointmentTime} onChange={handleChange} />
-                )}
-                {availableSlots.length > 0 && (
-                  <p style={{ margin: '4px 0 0', fontSize: '0.72rem', color: '#64748b' }}>
-                    Available: {availableSlots.map(s => `${s.startTime} - ${s.endTime}`).join(', ')}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Reason for Visit *</label>
-              <div className="textarea-wrapper">
-                <FileText size={18} className="textarea-icon" />
-                <textarea name="reasonForVisit" required className="form-textarea"
+            {/* Reason */}
+            <div>
+              <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Reason for Visit *</label>
+              <div style={{ position: 'relative' }}>
+                <FileText size={16} style={{ position: 'absolute', left: '0.875rem', top: '0.875rem', color: '#94a3b8' }} />
+                <textarea name="reasonForVisit" required rows="4"
                   placeholder="Describe your symptoms or reason for consultation..."
-                  rows="4" value={formData.reasonForVisit} onChange={handleChange} />
+                  value={formData.reasonForVisit} onChange={handleChange}
+                  style={{ width: '100%', padding: '0.75rem 0.875rem 0.75rem 2.5rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', resize: 'vertical', fontSize: '0.875rem' }} />
               </div>
             </div>
 
-            <div className="info-callout">
-              <strong>Note:</strong> Your appointment request will be reviewed by the hospital staff. You will receive a confirmation once it's approved.
+            {/* Note */}
+            <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '0.5rem', padding: '0.875rem 1rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+              <Info size={16} color="#2563eb" style={{ flexShrink: 0, marginTop: '1px' }} />
+              <p style={{ margin: 0, fontSize: '0.8rem', color: '#1d4ed8' }}>
+                Your appointment request will be reviewed by the hospital staff. You will receive a confirmation once it's approved.
+              </p>
             </div>
 
-            <div className="form-actions">
-              <button type="button" className="btn btn-outline-dark" onClick={() => navigate('/dashboard')}>Cancel</button>
-              <button type="submit" className="btn btn-search">Submit Request</button>
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => navigate('/dashboard')}
+                style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', backgroundColor: 'white', color: '#475569', fontWeight: 600, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button type="submit"
+                style={{ padding: '0.75rem 1.75rem', borderRadius: '0.5rem', border: 'none', backgroundColor: '#2563eb', color: 'white', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}>
+                Submit Request
+              </button>
             </div>
           </form>
         </div>

@@ -2,8 +2,11 @@ const express = require('express');
 const router = express.Router();
 const Appointment = require('../models/Appointment');
 const Notification = require('../models/Notification');
-const { bookAppointment, getAppointments, updateAppointmentStatus } = require('../controllers/appointmentController');
+const { bookAppointment, getAppointments, updateAppointmentStatus, getAvailableSlots } = require('../controllers/appointmentController');
 const { protect } = require('../middleware/authMiddleware');
+
+// Public: get available slots for a doctor on a date
+router.get('/slots/:doctorId/:date', getAvailableSlots);
 
 router.route('/')
   .get(protect, getAppointments)

@@ -186,9 +186,9 @@ const ManageBills = () => {
                     <td style={{ padding: '1rem 1.25rem', color: '#475569', fontSize: '0.875rem' }}>
                       {bill.doctor?.user?.name ? `Dr. ${bill.doctor.user.name}` : 'N/A'}
                     </td>
-                    <td style={{ padding: '1rem 1.25rem', fontWeight: 600, color: '#1e293b' }}>₹{bill.totalAmount}</td>
-                    <td style={{ padding: '1rem 1.25rem', color: '#16a34a', fontWeight: 600 }}>₹{bill.paidAmount}</td>
-                    <td style={{ padding: '1rem 1.25rem', color: '#dc2626', fontWeight: 600 }}>₹{bill.totalAmount - bill.paidAmount}</td>
+                    <td style={{ padding: '1rem 1.25rem', fontWeight: 600, color: '#1e293b' }}>₹{bill.totalAmount.toLocaleString('en-IN')}</td>
+                    <td style={{ padding: '1rem 1.25rem', color: '#16a34a', fontWeight: 600 }}>₹{bill.paidAmount.toLocaleString('en-IN')}</td>
+                    <td style={{ padding: '1rem 1.25rem', color: '#dc2626', fontWeight: 600 }}>₹{(bill.totalAmount - bill.paidAmount).toLocaleString('en-IN')}</td>
                     <td style={{ padding: '1rem 1.25rem' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '0.25rem 0.75rem', borderRadius: '9999px', backgroundColor: statusColor[bill.status]?.bg, color: statusColor[bill.status]?.color }}>
                         {bill.status}
@@ -307,7 +307,7 @@ const ManageBills = () => {
             <div style={{ backgroundColor: 'white', borderRadius: '0.75rem', padding: '2rem', width: '90%', maxWidth: '480px' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.5rem' }}>Add Extra Charge</h3>
               <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1rem' }}>
-                Patient: <strong>{chargeModal.patient?.name}</strong> | Current Total: <strong>₹{chargeModal.totalAmount.toLocaleString()}</strong>
+                Patient: <strong>{chargeModal.patient?.name}</strong> | Current Total: <strong>₹{chargeModal.totalAmount.toLocaleString('en-IN')}</strong>
               </p>
 
               {/* Existing items */}
@@ -316,7 +316,7 @@ const ManageBills = () => {
                 {chargeModal.items.map((item, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: '#475569', marginBottom: '0.25rem' }}>
                     <span>{item.description}</span>
-                    <span style={{ fontWeight: 600 }}>₹{item.amount.toLocaleString()}</span>
+                    <span style={{ fontWeight: 600 }}>₹{item.amount.toLocaleString('en-IN')}</span>
                   </div>
                 ))}
               </div>
@@ -336,7 +336,7 @@ const ManageBills = () => {
 
               {newCharge.amount && (
                 <div style={{ background: '#fef9c3', borderRadius: '0.5rem', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.875rem', color: '#92400e' }}>
-                  New Total: <strong>₹{(chargeModal.totalAmount + Number(newCharge.amount)).toLocaleString()}</strong>
+                  New Total: <strong>₹{(chargeModal.totalAmount + Number(newCharge.amount)).toLocaleString('en-IN')}</strong>
                 </div>
               )}
 
@@ -360,7 +360,7 @@ const ManageBills = () => {
             <div style={{ backgroundColor: 'white', borderRadius: '0.75rem', padding: '2rem', width: '90%', maxWidth: '400px' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.5rem' }}>Update Payment</h3>
               <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-                Patient: <strong>{payModal.patient?.name}</strong> | Total: <strong>₹{payModal.totalAmount}</strong>
+                Patient: <strong>{payModal.patient?.name}</strong> | Total: <strong>₹{payModal.totalAmount.toLocaleString('en-IN')}</strong>
               </p>
               <label style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Amount Paid (₹)</label>
               <input type="number" min="0" max={payModal.totalAmount} value={payAmount} onChange={e => setPayAmount(e.target.value)}

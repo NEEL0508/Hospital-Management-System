@@ -1,6 +1,78 @@
 const Appointment = require('../models/Appointment');
 const MedicalRecord = require('../models/MedicalRecord');
 const Notification = require('../models/Notification');
+const Doctor = require('../models/Doctor');
+const DoctorLeave = require('../models/DoctorLeave');
+
+// Helper: generate 30-min time slots between startTime and endTime (HH:MM strings)
+const generateSlots = (startTime, endTime) => {
+  const slots = [];
+  const [sh, sm] = startTime.split(':').map(Number);
+  const [eh, em] = endTime.split(':').map(Number);
+  let cur = sh * 60 + sm;
+  const end = eh * 60 + em;
+  while (cur < end) {
+    const h = String(Math.floor(cur / 60)).padStart(2, '0');
+    const m = String(cur % 60).padStart(2, '0');
+    slots.push(`${h}:${m}`);
+    cur += 30;
+  }
+  return slots;
+};
+
+// @desc  Get available slots for a doctor on a specific date
+// @route GET /api/appointments/slots/:doctorId/:date
+// @access Public
+const getAvailableSlots = async (req, res) => {
+  try {
+    const { doctorId, date } = req.params;
+    const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    const doctor = await Doctor.findById(doctorId);
+    if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
+
+    // Check if doctor is on leave
+    const leaveDate = new Date(date);
+    leaveDate.setHours(0, 0, 0, 0);
+    const onLeave = await DoctorLeave.findOne({ doctor: doctorId, date: leaveDate });
+    if (onLeave) return res.json({ onLeave: true, slots: [] });
+
+    // Get doctor's availability for that day of week
+    const dayName = DAYS[new Date(date).getDay()];
+    const daySlots = (doctor.availability || []).filter(s => s.day === dayName);
+    if (daySlots.length === 0) return res.json({ onLeave: false, slots: [], noSchedule: true });
+
+    // Generate all possible slots
+    const allSlots = daySlots.flatMap(s => generateSlots(s.startTime, s.endTime));
+
+    // Get already booked appointments for this doctor on this date
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const booked = await Appointment.find({
+      doctor: doctorId,
+      appointmentDate: { $gte: startOfDay, $lte: endOfDay },
+      status: { $in: ['Pending', 'Approved'] }
+    }).select('appointmentTime patient');
+
+    const bookedMap = {};
+    booked.forEach(apt => {
+      bookedMap[apt.appointmentTime] = apt.patient?.toString();
+    });
+
+    const slots = allSlots.map(time => ({
+      time,
+      status: bookedMap[time] ? 'booked' : 'available',
+      patientId: bookedMap[time] || null,
+    }));
+
+    res.json({ onLeave: false, slots, dayName });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 // @desc    Book an appointment (Patient)
 // @route   POST /api/appointments
@@ -130,5 +202,6 @@ const updateAppointmentStatus = async (req, res) => {
 module.exports = {
   bookAppointment,
   getAppointments,
-  updateAppointmentStatus
+  updateAppointmentStatus,
+  getAvailableSlots,
 };

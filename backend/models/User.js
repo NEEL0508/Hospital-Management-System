@@ -3,39 +3,54 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: [true, 'Please add a name']
+    required: [true, 'Please add a name'],
+    trim: true,
+    minlength: [2, 'Name must be at least 2 characters'],
+    maxlength: [100, 'Name cannot exceed 100 characters'],
   },
   email: {
     type: String,
     required: [true, 'Please add an email'],
-    unique: true
+    unique: true,
+    lowercase: true,
+    trim: true,
+    match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please provide a valid email'],
   },
   password: {
     type: String,
-    required: [true, 'Please add a password']
+    required: [true, 'Please add a password'],
+    minlength: [6, 'Password must be at least 6 characters'],
   },
   role: {
     type: String,
     enum: ['Patient', 'Doctor', 'Admin'],
-    default: 'Patient'
+    default: 'Patient',
   },
   phone: {
-    type: String
+    type: String,
+    trim: true,
   },
   bloodGroup: {
-    type: String
+    type: String,
+    enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', ''],
+    default: '',
   },
   address: {
-    type: String
+    type: String,
+    trim: true,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
   },
   resetPasswordToken: {
-    type: String
+    type: String,
   },
   resetPasswordExpire: {
-    type: Date
-  }
+    type: Date,
+  },
 }, {
-  timestamps: true
+  timestamps: true,
 });
 
 const bcrypt = require('bcryptjs');

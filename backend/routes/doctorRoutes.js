@@ -5,7 +5,8 @@ const {
   addDoctor, 
   getDoctorProfile, 
   updateDoctorAvailability,
-  getDoctorPatients
+  getDoctorPatients,
+  getDoctorPatientDetails
 } = require('../controllers/doctorController');
 const Doctor = require('../models/Doctor');
 const User = require('../models/User');
@@ -17,6 +18,7 @@ router.route('/')
 
 router.get('/me', protect, getDoctorProfile);
 router.get('/my-patients', protect, getDoctorPatients);
+router.get('/patient/:id/details', protect, getDoctorPatientDetails);
 router.put('/availability', protect, updateDoctorAvailability);
 
 router.delete('/:id', protect, admin, async (req, res) => {
